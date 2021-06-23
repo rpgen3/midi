@@ -24,7 +24,7 @@
     }).on('change', e => {
         msg('読み込み中');
         const fr = new FileReader;
-        fr.onload = () => load(fr.result);
+        fr.onload = () => load(new Uint8Array(fr.result)); // 型付配列に
         fr.readAsArrayBuffer(e.target.files[0]);
     });
     const load = data => {
@@ -34,8 +34,9 @@
         console.log(tracks);
     };
     const toNum = arr => arr.reduce((p, x) => (p << 8) + x);
+    const isEqual = (a, b) => JSON.stringify(a) === JSON.stringify(b);
     const parseHeader = data => {
-        if(data.subarray(0, 4).join('') !== '4D546864') throw new Error('this is not MIDI header');
+        if(isEqual(data.subarray(0, 3), [0x4D, 0x54, 0x68, 0x64])) throw new Error('this is not MIDI header');
         return {
             size : toNum(data.subarray(4, 8)), // ヘッダのサイズ
             format : data[9], // SMFフォーマット
@@ -46,7 +47,7 @@
     };
     let tracks;
     const parseTracks = data => {
-        if(data.subarray(0, 4).join('') !== '4D54726B') throw new Error('this is not MIDI track');
+        if(isEqual(data.subarray(0, 3), [0x4D, 0x54, 0x72, 0x6B])) throw new Error('this is not MIDI track');
         const size = toNum(data.subarray(4, 8)),
               next = 8 + size,
               track = data.subarray(8, next);
