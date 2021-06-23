@@ -385,7 +385,7 @@ tx:33,ty:6,t:300,
 #CM_EV
 m:KKK,
 #ED
-$play$
+$music$
 #PHEND0
 #END
 
