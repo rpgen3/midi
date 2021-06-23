@@ -4,7 +4,8 @@
         'https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.26/Tone.js'
     ].map(v => import(v)));
     const rpgen3 = await Promise.all([
-        'input'
+        'input',
+        'util'
     ].map(v => import(`https://rpgen3.github.io/mylib/export/${v}.mjs`))).then(v => Object.assign({},...v));
     const h = $('body').css({
         'text-align': 'center',
@@ -18,6 +19,11 @@
             backgroundColor: isError ? 'pink' : 'lightblue'
         });
     })();
+    const sleep = ms => new Promise(resolve=>setTimeout(resolve, ms));
+    const dialog = async str => {
+        msg(str);
+        await sleep(30);
+    };
     $('<input>').appendTo(h).prop({
         type: 'file',
         accept: '.mid'
@@ -27,10 +33,12 @@
         fr.onload = () => load(new Uint8Array(fr.result)); // 型付配列に
         fr.readAsArrayBuffer(e.target.files[0]);
     });
-    const load = data => {
+    const load = async data => {
+        await dialog('MIDIファイルを解析します');
         tracks = [];
         const header = parseHeader(data);
         parseTracks(data.subarray(8 + header.size));
+        await dialog('解析完了');
         console.log(tracks);
     };
     const toNum = arr => arr.reduce((p, x) => (p << 8) + x);
@@ -47,25 +55,31 @@
     };
     let tracks;
     const parseTracks = data => {
-        if(isEqual(data.subarray(0, 3), [0x4D, 0x54, 0x72, 0x6B])) throw new Error('this is not MIDI track');
-        const size = toNum(data.subarray(4, 8)),
-              next = 8 + size,
-              track = data.subarray(8, next);
-        tracks.push([]);
-        parseTrackData(track);
-        if(data.length > next) parseTracks(data.subarray(next, data.length));
+        while(1){
+            if(isEqual(data.subarray(0, 3), [0x4D, 0x54, 0x72, 0x6B])) throw new Error('this is not MIDI track');
+            const size = toNum(data.subarray(4, 8)),
+                  next = 8 + size,
+                  track = data.subarray(8, next);
+            tracks.push([]);
+            parseTrackData(track);
+            if(data.length <= next) break;
+            data = data.subarray(next, data.length);
+        }
     };
     const parseTrackData = data => {
-        const [nextData, deltaTime] = getDeltaTime(data),
-              [nextData2, event] = getEvent(nextData);
-        tracks[tracks.length - 1].push({deltaTime, event});
-        if(nextData2.length > 0) parseTrackData(nextData2);
+        while(1){
+            const [nextData, deltaTime] = getDeltaTime(data),
+                  [nextData2, event] = getEvent(nextData);
+            tracks[tracks.length - 1].push({deltaTime, event});
+            if(nextData2.length === 0) break;
+            data = nextData2;
+        }
     };
     const getDeltaTime = data => {
         let value = 0,
             i = 0;
         while(data[i] >= 0x80){ // 最上位ビットが1ならループ
-            var a = data[i] ^ (1 << 7); // 1.最上位ビットのみ反転(例：1000 0001 => 0000 0001にする)
+            const a = data[i] ^ (1 << 7); // 1.最上位ビットのみ反転(例：1000 0001 => 0000 0001にする)
             value = value << 7 | a; // 2.valueに反転した値を保持しておく
             i++;
         }
