@@ -20,13 +20,75 @@
     })();
     $('<input>').appendTo(h).prop({
         type: 'file',
-        accept: 'audio/*'
+        accept: '.mid'
     }).on('change', e => {
         msg('読み込み中');
         const fr = new FileReader;
         fr.onload = () => load(fr.result);
         fr.readAsArrayBuffer(e.target.files[0]);
     });
+    const load = data => {
+        tracks = [];
+        const header = parseHeader(data);
+        parseTracks(data.subarray(8 + header.size));
+        console.log(tracks);
+    };
+    const toNum = arr => arr.reduce((p, x) => (p << 8) + x);
+    const parseHeader = data => {
+        if(data.subarray(0, 4).join('') !== '4D546864') throw new Error('this is not MIDI header');
+        return {
+            size : toNum(data.subarray(4, 8)), // ヘッダのサイズ
+            format : data[9], // SMFフォーマット
+            trackSize : toNum(data.subarray(10, 12)), // トラック数
+            timeUnit : data[12], // 時間管理
+            tick : toNum(data.subarray(12, 14)) // 分解能
+        };
+    };
+    let tracks;
+    const parseTracks = data => {
+        if(data.subarray(0, 4).join('') !== '4D54726B') throw new Error('this is not MIDI track');
+        const size = toNum(data.subarray(4, 8)),
+              next = 8 + size,
+              track = data.subarray(8, next);
+        tracks.push([]);
+        parseTrackData(track);
+        if(data.length > next) parseTracks(data.subarray(next, data.length));
+    };
+    const parseTrackData = data => {
+        const [nextData, deltaTime] = getDeltaTime(data),
+              [nextData2, event] = getEvent(nextData);
+        tracks[tracks.length - 1].push({deltaTime, event});
+        if(nextData2.length > 0) parseTrackData(nextData2);
+    };
+    const getDeltaTime = data => {
+        let value = 0,
+            i = 0;
+        while(data[i] >= 0x80){ // 最上位ビットが1ならループ
+            var a = data[i] ^ (1 << 7); // 1.最上位ビットのみ反転(例：1000 0001 => 0000 0001にする)
+            value = value << 7 | a; // 2.valueに反転した値を保持しておく
+            i++;
+        }
+        value = value | data[i]; // 最後の値を連結
+        return [data.subarray(i + 1, data.length), value];
+    }
+
+    const getEvent = data => {
+        const d = {};
+        d.status = data[0]; // ステータスバイトを取得
+        if(d.status === 0xFF){ // メタイベントの場合
+            d.type = data[1]; // イベントタイプ
+            d.size = toNum(data.subarray(2, 3)); // メタイベントのデータ量は3バイト目に保持されている
+            d.data = data.subarray(3, 3 + d.size); // データ
+            data = data.subarray(3 + d.size, data.length); // 残りの配列
+        }
+        else if(d.status >=0x80 && d.status <=0x9F){
+            d.channel = d.status & 0xf; // チャンネル
+            d.note = data[1]; // 音高は2バイト目
+            d.velocity = data[2]; // ヴェロシティ
+            data = data.subarray(3, data.length); // 残りの配列
+        }
+        return [data, d];
+    };
     const playSound = (i, v) => `#PL_SD\ni:${i},v:${v},`,
           wait = t => `#WAIT\nt:${t},`,
           end = '#ED';
