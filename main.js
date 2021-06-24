@@ -3,6 +3,7 @@
         'https://rpgen3.github.io/lib/lib/jquery-3.5.1.min.js',
         'https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.26/Tone.js'
     ].map(v => import(v)));
+    $.getScript('https://cdnjs.cloudflare.com/ajax/libs/lz-string/1.4.4/lz-string.min.js');
     const rpgen3 = await Promise.all([
         'input',
         'util'
@@ -11,6 +12,7 @@
         'text-align': 'center',
         padding: '1em'
     });
+    const addBtn = (parent, ttl, func) => $('<button>').appendTo(parent).text(ttl).on('click', func);
     $('<h1>').appendTo(h).text('MIDIファイルを読み込む');
     const msg = (()=>{
         const elm = $('<div>').appendTo(h);
@@ -38,7 +40,8 @@
         tracks = [];
         const header = parseHeader(data);
         parseTracks(data.subarray(8 + header.size));
-        await dialog('解析完了');
+        await dialog('どのトラックを使う？');
+        const checks = await selectTracks(tracks);
         console.log(tracks);
     };
     const toNum = arr => arr.reduce((p, x) => (p << 8) + x);
@@ -104,6 +107,16 @@
         }
         return [data, d];
     };
+    const hChecks = $('<div>').appendTo(h);
+    const selectTracks = tracks => {
+        hChecks.empty();
+        const arr = [];
+        for(const [i,v] of tracks.entries()) arr.push(rpgen3.addInputBool(hChecks,{
+            label: `チャンネル${i}　トラック数：${v.length}`,
+            value: true
+        }));
+        return new Promise(resolve => addBtn(hChecks, '選択を確定', () => resolve(arr)));
+    };
     const playSound = (i, v) => `#PL_SD\ni:${i},v:${v},`,
           wait = t => `#WAIT\nt:${t},`,
           end = '#ED';
@@ -115,4 +128,11 @@
             range(822, 825)
         ].flat();
     })();
+    const output = $('<div>').appendTo(h),
+          rpgen = await import('./rpgen.mjs'),
+          mapData = await(await fetch('data.txt')).text();
+    const makeCode = str => rpgen3.addInputStr(output.empty(),{
+        value: mapData.replace('$music$', str),
+        copy: true
+    });
 })();
