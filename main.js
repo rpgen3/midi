@@ -259,7 +259,7 @@
     const rpgen = await Promise.all([
         './export/rpgen.mjs',
         './export/eventMax.mjs'
-    ]).then(v => Object.assign({},...v));
+    ].map(v=>import(v))).then(v => Object.assign({},...v));
     const output = $('<div>').appendTo(h),
           mapData = await(await fetch('data.txt')).text();
     const makeCode = events => rpgen3.addInputStr(output.empty(),{
