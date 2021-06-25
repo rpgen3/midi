@@ -42,7 +42,7 @@ export class EventMax {
         for(let i = 0; i < this.max; i++){
             const j = i * 400;
             if(j > events.length - 1) break;
-            arr.push(new Event(i, events.slice(x, y, j, j + 400)));
+            arr.push(new Event(x, y, i, events.slice(j, j + 400)));
         }
         return arr.map(v => v.toStr()).join('\n\n');
     }
