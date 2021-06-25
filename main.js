@@ -28,33 +28,72 @@
     };
     const inputBPM = rpgen3.addInputNum(h,{
         label: 'BPM',
+        save: true,
         value: 120,
         max: 300,
         min: 30
     });
+    const inputMin = rpgen3.addInputNum(h,{
+        label: '下限のwait時間[ms]',
+        save: true,
+        value: 30,
+        max: 100,
+        min: 0
+    });
+    const piano = (()=>{
+        const semiTone = Math.exp(1/12 * Math.log(2)),
+              hz = [...new Array(87)].reduce((p, x) => ([p[0] * semiTone].concat(p)), [27.5]).reverse();
+        const ar = [],
+              ptn = 'AABCCDDEFFGG',
+              idxs = ptn.split('').map(v => ptn.indexOf(v));
+        for(const i of hz.keys()){
+            const j = i % ptn.length;
+            ar.push(ptn[j] + (idxs.includes(j) ? '' : '#') + ((i + 9) / ptn.length | 0));
+        }
+        return {semiTone, hz, hzToNote: ar};
+    })();
+    const inputMinTone = rpgen3.addInputNum(h,{
+        label: '下限の音階',
+        save: true,
+        value: 10,
+        max: piano.hz.length,
+        min: 0
+    });
+    const hMinTone = $('<div>').appendTo(h);
+    inputMinTone.elm.on('input',() => {
+        const note = piano.hzToNote[inputMinTone - 1];
+        hMinTone.text(note);
+        new Tone.Synth().toMaster().triggerAttackRelease(note, '16n');
+    }).trigger('input');
     $('<input>').appendTo(h).prop({
         type: 'file',
         accept: '.mid'
     }).on('change', e => {
         msg('読み込み中');
         const fr = new FileReader;
-        fr.onload = () => load(new Uint8Array(fr.result)); // 型付配列に
+        fr.onload = () => {
+            loaded = fr.result;
+            msg('読み込み完了');
+        };
         fr.readAsArrayBuffer(e.target.files[0]);
     });
-    let tick;
+    let loaded;
+    addBtn(h, '処理開始', () => {
+        if(!loaded) return msg('MIDIファイルを読み込んでください', true);
+        load(new Uint8Array(loaded)); // 型付配列に
+    });
+    let deltaToMs;
     const load = async data => {
         await dialog('MIDIファイルを解析します');
         tracks = [];
         const header = parseHeader(data);
-        tick = 60 / inputBPM / header.timeBase;
         parseTracks(data.subarray(8 + header.size));
-        console.log(tracks)
+        deltaToMs = findTempo(tracks, header.timeBase) || 60 / inputBPM / header.timeBase;;
         await dialog('どのトラックを使う？');
         const checks = await selectTracks(tracks),
-              eventArr = checkTime(makeMusic(tracks, checks));
-        await dialog(`イベントの数：${eventArr.length}`);
-        console.log(eventArr)
-        makeCode(eventArr.map(v=>`${v}\n${end}\n`));
+              events = joinWait(trim(makeMusic(tracks, checks)));
+        await dialog(`イベントの数：${events.length}`);
+        makeCode(events);
     };
     const toNum = arr => arr.reduce((p, x) => (p << 8) + x);
     const isEqual = (a, b) => JSON.stringify(a) === JSON.stringify(b);
@@ -95,13 +134,14 @@
             i = 0;
         while(data[i] >= 0x80){ // 最上位ビットが1ならループ
             const a = data[i] ^ (1 << 7); // 1.最上位ビットのみ反転(例：1000 0001 => 0000 0001にする)
-            value = value << 7 | a; // 2.valueに反転した値を保持しておく
+            value <<= 7;
+            value |= a;
             i++;
         }
-        value = value | data[i]; // 最後の値を連結
+        value <<= 7;
+        value |= data[i]; // 最後の値を連結
         return [data.subarray(i + 1, data.length), value];
-    }
-
+    };
     const getEvent = data => {
         const d = {};
         d.status = data[0]; // ステータスバイトを取得
@@ -119,6 +159,19 @@
         }
         return [data, d];
     };
+    const findTempo = (tracks, division) => {
+        const MICROSECONDS_PER_MINUTE = 60000000;
+        for(const track of tracks){
+            for(const t of track){
+                const {event} = t,
+                      {status, type, data} = event;
+                if(type === 0x51) {
+                    const tempo = toNum(data); // 4分音符の長さをマイクロ秒単位で表現
+                    return 1000 * (60 / ((MICROSECONDS_PER_MINUTE / tempo) * division));
+                }
+            }
+        }
+    };
     const hChecks = $('<div>').appendTo(h);
     const selectTracks = tracks => {
         hChecks.empty();
@@ -127,7 +180,10 @@
             label: `チャンネル${i}　トラック数：${v.length}`,
             value: true
         }));
-        return new Promise(resolve => addBtn(hChecks, '選択を確定', () => resolve(arr.map(v => v()))));
+        return new Promise(resolve => addBtn(hChecks, '選択を確定', () => {
+            hChecks.empty();
+            resolve(arr.map(v => v()));
+        }));
     };
     const makeMusic = (tracks, checks) => {
         const result = [];
@@ -143,20 +199,25 @@
             }
             const t = tracks[idx],
                   {deltaTime, event} = t[index[idx]],
-                  {note, status, velocity} = event;
+                  {note, status, velocity, type, data} = event;
             if(deltaTime) {
-                const time = deltaTime * tick,
+                const time = deltaTime * deltaToMs,
                       lastIdx = result.length - 1;
                 if(isNaN(result[lastIdx])) result.push(time);
                 else result[lastIdx] += time;
             }
             switch(status & 0xF0){
                 case 0x90: { // ノートオン
-                    const v = velocity / 0x7F | 0;
+                    const v = 100 * velocity / 0x7F | 0;
                     if(!v) break;
-                    const id = getSoundId[note - 21];
+                    const tone = note - 21;
+                    if(inputMinTone - 1 > tone) break;
+                    const id = getSoundId[tone];
                     if(id === void 0) break;
                     result.push(playSound(id, v));
+                    break;
+                }
+                case 0xF0: { // メタイベント
                     break;
                 }
                 default:
@@ -166,21 +227,27 @@
         }
         return result;
     };
-    const checkTime = eventArr => {
-        const arr = [];
-        for(const v of eventArr){
-            if(isNaN(v)) arr.push(v);
+    const trim = arr => {
+        let start = 0,
+            end = arr.length;
+        if(!isNaN(arr[0])) start++;
+        if(!isNaN(arr[end - 1])) end--;
+        return arr.slice(start, end);
+    };
+    const joinWait = arr => {
+        const result = [];
+        for(const v of arr){
+            if(isNaN(v)) result.push(v);
             else {
                 const vv = v | 0;
-                if(vv > minTime) arr.push(wait(vv));
+                if(vv > inputMin) result.push(wait(vv));
             }
         }
-        return arr;
+        return result;
     };
     const playSound = (i, v) => `#PL_SD\ni:${i},v:${v},`,
           wait = t => `#WAIT\nt:${t},`,
-          end = '#ED',
-          minTime = 0;
+          end = '#ED';
     const getSoundId = (() => {
         const range = (start, end) => [...Array(end - start + 1).keys()].map(v => v + start);
         return [
@@ -189,11 +256,23 @@
             range(822, 825)
         ].flat();
     })();
+    const rpgen = await Promise.all([
+        './export/rpgen.mjs',
+        './export/eventMax.mjs'
+    ]).then(v => Object.assign({},...v));
     const output = $('<div>').appendTo(h),
-          rpgen = await import('./rpgen.mjs'),
           mapData = await(await fetch('data.txt')).text();
-    const makeCode = str => rpgen3.addInputStr(output.empty(),{
-        value: mapData.replace('$music$', str),
+    const makeCode = events => rpgen3.addInputStr(output.empty(),{
+        value: rpgen.set(mapData.replace('$music$', `${startEvent}\n${new rpgen.EventMax(10).make(events)}`.trim())),
         copy: true
     });
+    const startEvent = `
+#EPOINT tx:42,ty:3,
+#PH0 tm:1,
+#CH_PH
+p:0,x:0,y:0,
+#ED
+#PHEND0
+#END
+`;
 })();
