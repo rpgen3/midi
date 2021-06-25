@@ -1,6 +1,5 @@
-let xx, yy;
 class Ph {
-    constructor(x, events, i){
+    constructor(xx, yy, x, events, i){
         this.head = `#PH${i} tm:0,${i ? 'sw:99,g:,' : ''}`;
         this.body = events;
         this.foot = `#PHEND${i}`;
@@ -16,7 +15,7 @@ class Ph {
     }
 }
 class Event {
-    constructor(x, events){
+    constructor(xx, yy, x, events){
         this.head = `#EPOINT tx:${x + xx},ty:${yy},`;
         this.body = [];
         this.foot = '#END';
@@ -39,12 +38,11 @@ export class EventMax {
         this.max = 96 - already;
     }
     make(events, x = 0, y = 0){
-        [xx, yy] = [x, y];
         const arr = [];
         for(let i = 0; i < this.max; i++){
             const j = i * 400;
             if(j > events.length - 1) break;
-            arr.push(new Event(i, events.slice(j, j + 400)));
+            arr.push(new Event(i, events.slice(x, y, j, j + 400)));
         }
         return arr.map(v => v.toStr()).join('\n\n');
     }
