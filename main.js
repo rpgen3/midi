@@ -27,12 +27,16 @@
         await sleep(30);
     };
     const inputBPM = rpgen3.addInputNum(h,{
-        label: 'BPM',
+        label: 'BPM(優先度低)',
         save: true,
         value: 120,
         max: 300,
         min: 30
     });
+    const importantBPM = rpgen3.addInputBool(h,{
+        label: '手動入力のBPMを優先',
+        save: true
+    })
     const inputMin = rpgen3.addInputNum(h,{
         label: '下限のwait時間[ms]',
         save: true,
@@ -60,7 +64,7 @@
         min: 0
     });
     const hMinTone = $('<div>').appendTo(h);
-    inputMinTone.elm.on('input',() => {
+    inputMinTone.elm.on('input click',() => {
         const note = piano.hzToNote[inputMinTone - 1];
         hMinTone.text(note);
         new Tone.Synth().toMaster().triggerAttackRelease(note, '16n');
@@ -88,13 +92,32 @@
         tracks = [];
         const header = parseHeader(data);
         parseTracks(data.subarray(8 + header.size));
-        deltaToMs = findTempo(tracks, header.timeBase) || 60 / inputBPM / header.timeBase;;
+        const userInput = 60 / inputBPM / header.timeBase;
+        deltaToMs = importantBPM() ? userInput : findTempo(tracks, header.timeBase) || userInput;
         await dialog('どのトラックを使う？');
         const checks = await selectTracks(tracks),
               events = joinWait(trim(makeMusic(tracks, checks)));
         await dialog(`イベントの数：${events.length}`);
         makeCode(events);
+        console.log(tracks);
+        console.log(debug.map);
     };
+    const debug = (()=>{
+        const map = new Map;
+        const f = (...arr) => {
+            const [a, b] = arr;
+            if(arr.length === 1){
+                if(map.has(a)) map.set(map.get() + 1);
+                else map.set(a, 1);
+            }
+            else {
+                if(!map.has(a)) map.set(a, []);
+                map.get(a).push(b);
+            }
+        };
+        f.map = map;
+        return f;
+    })();
     const toNum = arr => arr.reduce((p, x) => (p << 8) + x);
     const isEqual = (a, b) => JSON.stringify(a) === JSON.stringify(b);
     const parseHeader = data => {
@@ -187,7 +210,7 @@
     };
     const makeMusic = (tracks, checks) => {
         const result = [];
-        let useIndex = checks.map((v,i)=>v&&i).filter(v=>v!==false),
+        let useIndex = checks.map((v,i)=>v ? i : false).filter(v=>v!==false),
             index = checks.map(() => 0);
         while(useIndex.length){
             let idx, min = Infinity;
@@ -210,6 +233,7 @@
                 case 0x90: { // ノートオン
                     const v = 100 * velocity / 0x7F | 0;
                     if(!v) break;
+                    debug(idx, note);
                     const tone = note - 21;
                     if(inputMinTone - 1 > tone) break;
                     const id = getSoundId[tone];
