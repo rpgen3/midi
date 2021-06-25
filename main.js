@@ -48,10 +48,12 @@
         const header = parseHeader(data);
         tick = 60 / inputBPM / header.timeBase;
         parseTracks(data.subarray(8 + header.size));
+        console.log(tracks)
         await dialog('どのトラックを使う？');
         const checks = await selectTracks(tracks),
-              eventArr = makeMusic(tracks, checks);
+              eventArr = checkTime(makeMusic(tracks, checks));
         await dialog(`イベントの数：${eventArr.length}`);
+        console.log(eventArr)
         makeCode(eventArr.map(v=>`${v}\n${end}\n`));
     };
     const toNum = arr => arr.reduce((p, x) => (p << 8) + x);
@@ -134,7 +136,7 @@
         while(useIndex.length){
             let idx, min = Infinity;
             for(const i of useIndex){
-                const time = tracks[index[i]].deltaTime;
+                const time = tracks[i][index[i]].deltaTime;
                 if(time > min) continue;
                 min = time;
                 idx = i;
@@ -142,7 +144,12 @@
             const t = tracks[idx],
                   {deltaTime, event} = t[index[idx]],
                   {note, status, velocity} = event;
-            if(deltaTime) result.push(wait(deltaTime * tick | 0));
+            if(deltaTime) {
+                const time = deltaTime * tick,
+                      lastIdx = result.length - 1;
+                if(isNaN(result[lastIdx])) result.push(time);
+                else result[lastIdx] += time;
+            }
             switch(status & 0xF0){
                 case 0x90: { // ノートオン
                     const v = velocity / 0x7F | 0;
@@ -159,9 +166,21 @@
         }
         return result;
     };
+    const checkTime = eventArr => {
+        const arr = [];
+        for(const v of eventArr){
+            if(isNaN(v)) arr.push(v);
+            else {
+                const vv = v | 0;
+                if(vv > minTime) arr.push(wait(vv));
+            }
+        }
+        return arr;
+    };
     const playSound = (i, v) => `#PL_SD\ni:${i},v:${v},`,
           wait = t => `#WAIT\nt:${t},`,
-          end = '#ED';
+          end = '#ED',
+          minTime = 0;
     const getSoundId = (() => {
         const range = (start, end) => [...Array(end - start + 1).keys()].map(v => v + start);
         return [
