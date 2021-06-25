@@ -381,19 +381,4 @@ tx:33,ty:6,t:300,
 #PHEND0
 #END
 
-#EPOINT tx:42,ty:3,
-#PH0 tm:0,
-#CM_EV
-m:KKK,
-#ED
 $music$
-#PHEND0
-#END
-
-#EPOINT tx:57,ty:3,
-#PH0 tm:0,
-#CM_EV
-m:LLL,
-#ED
-#PHEND0
-#END
