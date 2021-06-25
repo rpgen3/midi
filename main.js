@@ -26,6 +26,12 @@
         msg(str);
         await sleep(30);
     };
+    const inputBPM = rpgen3.addInputNum(h,{
+        label: 'BPM',
+        value: 120,
+        max: 300,
+        min: 30
+    });
     $('<input>').appendTo(h).prop({
         type: 'file',
         accept: '.mid'
@@ -35,14 +41,18 @@
         fr.onload = () => load(new Uint8Array(fr.result)); // 型付配列に
         fr.readAsArrayBuffer(e.target.files[0]);
     });
+    let tick;
     const load = async data => {
         await dialog('MIDIファイルを解析します');
         tracks = [];
         const header = parseHeader(data);
+        tick = 60 / inputBPM / header.timeBase;
         parseTracks(data.subarray(8 + header.size));
         await dialog('どのトラックを使う？');
-        const checks = await selectTracks(tracks);
-        console.log(tracks);
+        const checks = await selectTracks(tracks),
+              eventArr = makeMusic(tracks, checks);
+        await dialog(`イベントの数：${eventArr.length}`);
+        makeCode(eventArr.map(v=>`${v}\n${end}\n`));
     };
     const toNum = arr => arr.reduce((p, x) => (p << 8) + x);
     const isEqual = (a, b) => JSON.stringify(a) === JSON.stringify(b);
@@ -52,8 +62,8 @@
             size : toNum(data.subarray(4, 8)), // ヘッダのサイズ
             format : data[9], // SMFフォーマット
             trackSize : toNum(data.subarray(10, 12)), // トラック数
-            timeUnit : data[12], // 時間管理
-            tick : toNum(data.subarray(12, 14)) // 分解能
+            timeType : data[12], // 時間管理
+            timeBase : toNum(data.subarray(12, 14)) // 分解能
         };
     };
     let tracks;
@@ -115,7 +125,39 @@
             label: `チャンネル${i}　トラック数：${v.length}`,
             value: true
         }));
-        return new Promise(resolve => addBtn(hChecks, '選択を確定', () => resolve(arr)));
+        return new Promise(resolve => addBtn(hChecks, '選択を確定', () => resolve(arr.map(v => v()))));
+    };
+    const makeMusic = (tracks, checks) => {
+        const result = [];
+        let useIndex = checks.map((v,i)=>v&&i).filter(v=>v!==false),
+            index = checks.map(() => 0);
+        while(useIndex.length){
+            let idx, min = Infinity;
+            for(const i of useIndex){
+                const time = tracks[index[i]].deltaTime;
+                if(time > min) continue;
+                min = time;
+                idx = i;
+            }
+            const t = tracks[idx],
+                  {deltaTime, event} = t[index[idx]],
+                  {note, status, velocity} = event;
+            if(deltaTime) result.push(wait(deltaTime * tick | 0));
+            switch(status & 0xF0){
+                case 0x90: { // ノートオン
+                    const v = velocity / 0x7F | 0;
+                    if(!v) break;
+                    const id = getSoundId[note - 21];
+                    if(id === void 0) break;
+                    result.push(playSound(id, v));
+                    break;
+                }
+                default:
+                    break;
+            }
+            if(++index[idx] >= t.length) useIndex = useIndex.filter(v => v !== idx);
+        }
+        return result;
     };
     const playSound = (i, v) => `#PL_SD\ni:${i},v:${v},`,
           wait = t => `#WAIT\nt:${t},`,
