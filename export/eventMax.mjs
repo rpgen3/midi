@@ -1,28 +1,29 @@
 class Ph {
-    constructor(xx, yy, x, events, i){
+    constructor(xx, yy, isLast, x, events, i){
         this.head = `#PH${i} tm:0,${i ? 'sw:99,g:,' : ''}`;
         this.body = events;
         this.foot = `#PHEND${i}`;
         const next = (i + 1) % 4;
-        this.ch_ph = `#CH_PH\np:${next},x:${(next ? x : x + 1) + xx},y:${yy},`;
+        if(!isLast) events.push(`#CH_PH\np:${next},x:${(next ? x : x + 1) + xx},y:${yy},`);
     }
     toStr(){
         return [
             this.head,
-            this.body.concat(this.ch_ph).map(v => v + '\n#ED'),
+            this.body.map(v => v + '\n#ED'),
             this.foot
         ].flat().join('\n');
     }
 }
 class Event {
-    constructor(xx, yy, x, events){
+    constructor(xx, yy, isLast, x, events){
         this.head = `#EPOINT tx:${x + xx},ty:${yy},`;
         this.body = [];
         this.foot = '#END';
         for(let i = 0; i < 4; i++){
-            const j = i * 100;
-            if(j > events.length - 1) break;
-            this.body.push(new Ph(x, events.slice(j, j + 100), i));
+            const j = i * 100,
+                  isLast = events.length > j + 100;
+            this.body.push(new Ph(xx, yy, isLast, x, events.slice(j, j + 100), i));
+            if(isLast) break;
         }
     }
     toStr(){
@@ -40,9 +41,10 @@ export class EventMax {
     make(events, x = 0, y = 0){
         const arr = [];
         for(let i = 0; i < this.max; i++){
-            const j = i * 400;
+            const j = i * 400,
+                  isLast = events.length > j + 400;
             if(j > events.length - 1) break;
-            arr.push(new Event(x, y, i, events.slice(j, j + 400)));
+            arr.push(new Event(x, y, isLast, i, events.slice(j, j + 400)));
         }
         return arr.map(v => v.toStr()).join('\n\n');
     }
