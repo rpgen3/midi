@@ -97,11 +97,10 @@
         deltaToMs = 1000 * 60 / tempo / header.timeBase;
         await dialog('どのトラックを使う？');
         const checks = await selectTracks(tracks),
-              a = makeMusic(tracks, checks),
-              events = joinWait(trim(a));
+              events = joinWait(trim(makeMusic(tracks, checks)));
         await dialog(`イベントの数：${events.length}`);
         makeCode(events);
-        console.log(debug.map)
+        console.log(debug.map);
     };
     const debug = (()=>{
         const map = new Map;
@@ -154,34 +153,32 @@
         }
     };
     const getDeltaTime = data => {
-        let value = 0,
+        let deltaTime = 0,
             i = 0;
-        while(data[i] >= 0x80){ // 最上位ビットが1ならループ
-            const a = data[i] ^ (1 << 7); // 1.最上位ビットのみ反転(例：1000 0001 => 0000 0001にする)
-            value <<= 7;
-            value |= a;
-            i++;
+        while(1){
+            const tmp = data[i++];
+            deltaTime |= tmp & 0x7f; // 下位7bitを格納
+            if((tmp & 0x80) === 0) break; // 最上位1bitが0ならデータ終了
+            deltaTime <<= 7; // 次の下位7bit用にビット移動
         }
-        value <<= 7;
-        value |= data[i]; // 最後の値を連結
-        return [data.subarray(i + 1, data.length), value];
+        return [data.subarray(i, data.length), deltaTime];
     };
     const getEvent = data => {
-        const d = {};
-        d.status = data[0]; // ステータスバイトを取得
-        if(d.status === 0xFF){ // メタイベントの場合
-            d.type = data[1]; // イベントタイプ
-            d.size = toNum(data.subarray(2, 3)); // メタイベントのデータ量は3バイト目に保持されている
-            d.data = data.subarray(3, 3 + d.size); // データ
-            data = data.subarray(3 + d.size, data.length); // 残りの配列
+        const event = {};
+        event.status = data[0]; // ステータスバイトを取得
+        if(event.status === 0xFF){ // メタイベントの場合
+            event.type = data[1]; // イベントタイプ
+            event.size = toNum(data.subarray(2,3)); // メタイベントのデータ量は3バイト目に保持されている
+            event.data = data.subarray(3,3+event.size); // データ
+            data = data.subarray(3+event.size,data.length); // 残りの配列
         }
-        else if(d.status >=0x80 && d.status <=0x9F){
-            d.channel = d.status & 0xf; // チャンネル
-            d.note = data[1]; // 音高は2バイト目
-            d.velocity = data[2]; // ヴェロシティ
-            data = data.subarray(3, data.length); // 残りの配列
+        else if(event.status >=0x80 && event.status <=0x9F){
+            event.channel = event.status & 0xf; // チャンネル
+            event.note = data[1]; // 音高は2バイト目
+            event.velocity=data[2]; // ヴェロシティ
+            data = data.subarray(3,data.length); // 残りの配列
         }
-        return [data, d];
+        return [data, event]; // 取得したイベントと配列の残りをリターン
     };
     const findTempo = tracks => {
         const MICROSECONDS_PER_MINUTE = 60000000;
@@ -212,7 +209,6 @@
             index = checks.map(() => 0),
             totalTime = index.slice(),
             currentTime = 0;
-        let cnt=0;
         while(useIndex.length){
             let time, idx, min = Infinity;
             for(const i of useIndex){
@@ -224,23 +220,17 @@
                 time = deltaTime;
             }
             totalTime[idx] += time;
-            //if(++cnt>100) throw 114514;
-            //console.log(totalTime);
-            //debug(idx+' '+totalTime[idx])
-            //debug(idx+' '+note)
             const t = tracks[idx],
                   {deltaTime, event} = t[index[idx]],
                   {note, status, velocity, type, data} = event;
-            debug(idx, t[index[idx]]);
             if(deltaTime) {
                 const total = totalTime[idx],
                       time = (total - currentTime) * deltaToMs,
                       lastIdx = result.length - 1;
-                //time > 10*1000 && console.log([time, currentTime * deltaTime,t[index[idx]]])
                 if(isNaN(result[lastIdx])) result.push(time);
                 else result[lastIdx] += time;
                 currentTime = total;
-                //console.log(currentTime)
+                debug(currentTime * deltaToMs, idx);
             }
             switch(status & 0xF0){
                 case 0x90: { // ノートオン
@@ -251,8 +241,6 @@
                     const id = getSoundId[tone];
                     if(id === void 0) break;
                     result.push(playSound(id, v));
-                    //debug(idx+' '+note+' '+totalTime[idx])
-                    //debug(idx, totalTime[idx]);
                     break;
                 }
                 case 0xF0: { // メタイベント
@@ -284,8 +272,7 @@
         return result;
     };
     const playSound = (i, v) => `#PL_SD\ni:${i},v:${v},`,
-          wait = t => `#WAIT\nt:${t},`,
-          end = '#ED';
+          wait = t => `#WAIT\nt:${t},`;
     const getSoundId = (() => {
         const range = (start, end) => [...Array(end - start + 1).keys()].map(v => v + start);
         return [
