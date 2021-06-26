@@ -35,7 +35,7 @@ class Event {
     }
 }
 export class FullEvent {
-    constructor(already){
+    constructor(already = 0){
         this.max = 96 - already;
     }
     make(events, x = 0, y = 0){
