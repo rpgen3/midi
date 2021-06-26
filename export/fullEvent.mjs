@@ -4,7 +4,7 @@ class Ph {
         this.body = events;
         this.foot = `#PHEND${i}`;
         const next = (i + 1) % 4;
-        if(last - events.length > 100) events.push(`#CH_PH\np:${next},x:${(next ? x : x + 1) + xx},y:${yy},`);
+        if(last - events.length > 0) events.push(`#CH_PH\np:${next},x:${(next ? x : x + 1) + xx},y:${yy},`);
     }
     toStr(){
         return [
