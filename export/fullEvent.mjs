@@ -34,7 +34,7 @@ class Event {
         ].flat().join('\n');
     }
 }
-export class EventMax {
+export class FullEvent {
     constructor(already){
         this.max = 96 - already;
     }
