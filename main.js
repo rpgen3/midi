@@ -92,8 +92,8 @@
         tracks = [];
         const header = parseHeader(data);
         parseTracks(data.subarray(8 + header.size));
-        const userInput = 60 / inputBPM / header.timeBase;
-        deltaToMs = importantBPM() ? userInput : findTempo(tracks, header.timeBase) || userInput;
+        const tempo = importantBPM() ? inputBPM() : findTempo(tracks) || inputBPM();
+        deltaToMs = 1000 * 60 / tempo / header.timeBase;
         await dialog('どのトラックを使う？');
         const checks = await selectTracks(tracks),
               events = joinWait(trim(makeMusic(tracks, checks)));
@@ -182,7 +182,7 @@
         }
         return [data, d];
     };
-    const findTempo = (tracks, division) => {
+    const findTempo = tracks => {
         const MICROSECONDS_PER_MINUTE = 60000000;
         for(const track of tracks){
             for(const t of track){
@@ -190,7 +190,7 @@
                       {status, type, data} = event;
                 if(type === 0x51) {
                     const tempo = toNum(data); // 4分音符の長さをマイクロ秒単位で表現
-                    return 1000 * (60 / ((MICROSECONDS_PER_MINUTE / tempo) * division));
+                    return MICROSECONDS_PER_MINUTE / tempo;
                 }
             }
         }
@@ -282,21 +282,13 @@
     })();
     const rpgen = await Promise.all([
         './export/rpgen.mjs',
-        './export/eventMax.mjs'
+        './export/fullEvent.mjs'
     ].map(v=>import(v))).then(v => Object.assign({},...v));
     const output = $('<div>').appendTo(h),
           mapData = await(await fetch('data.txt')).text();
     const makeCode = events => rpgen3.addInputStr(output.empty(),{
-        value: rpgen.set(mapData.replace('$music$', `${startEvent}\n${new rpgen.EventMax(10).make(events)}`.trim())),
+        value: rpgen.set(mapData.replace('$music$', `${startEvent}\n${new rpgen.FullEvent(10).make(events)}`.trim())),
         copy: true
     });
-    const startEvent = `
-#EPOINT tx:42,ty:3,
-#PH0 tm:1,
-#CH_PH
-p:0,x:0,y:0,
-#ED
-#PHEND0
-#END
-`;
+    const startEvent = new rpgen.FullEvent().make(['#CH_PH\np:0,x:0,y:0,'], 42, 3);
 })();
