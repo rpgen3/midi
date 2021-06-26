@@ -29,9 +29,9 @@
     const inputBPM = rpgen3.addInputNum(h,{
         label: 'BPM(優先度低)',
         save: true,
-        value: 120,
-        max: 300,
-        min: 30
+        value: 130,
+        max: 500,
+        min: 50
     });
     const importantBPM = rpgen3.addInputBool(h,{
         label: '手動入力のBPMを優先',
@@ -85,6 +85,7 @@
     addBtn(h, '処理開始', () => {
         if(!loaded) return msg('MIDIファイルを読み込んでください', true);
         load(new Uint8Array(loaded)); // 型付配列に
+        output.empty();
     });
     let deltaToMs;
     const load = async data => {
@@ -96,18 +97,18 @@
         deltaToMs = 1000 * 60 / tempo / header.timeBase;
         await dialog('どのトラックを使う？');
         const checks = await selectTracks(tracks),
-              events = joinWait(trim(makeMusic(tracks, checks)));
+              a = makeMusic(tracks, checks),
+              events = joinWait(trim(a));
         await dialog(`イベントの数：${events.length}`);
         makeCode(events);
-        console.log(tracks);
-        console.log(debug.map);
+        console.log(debug.map)
     };
     const debug = (()=>{
         const map = new Map;
         const f = (...arr) => {
             const [a, b] = arr;
             if(arr.length === 1){
-                if(map.has(a)) map.set(map.get() + 1);
+                if(map.has(a)) map.set(a, map.get(a) + 1);
                 else map.set(a, 1);
             }
             else {
@@ -188,10 +189,7 @@
             for(const t of track){
                 const {event} = t,
                       {status, type, data} = event;
-                if(type === 0x51) {
-                    const tempo = toNum(data); // 4分音符の長さをマイクロ秒単位で表現
-                    return MICROSECONDS_PER_MINUTE / tempo;
-                }
+                if(type === 0x51) return MICROSECONDS_PER_MINUTE / toNum(data);
             }
         }
     };
@@ -211,34 +209,50 @@
     const makeMusic = (tracks, checks) => {
         const result = [];
         let useIndex = checks.map((v,i)=>v ? i : false).filter(v=>v!==false),
-            index = checks.map(() => 0);
+            index = checks.map(() => 0),
+            totalTime = index.slice(),
+            currentTime = 0;
+        let cnt=0;
         while(useIndex.length){
-            let idx, min = Infinity;
+            let time, idx, min = Infinity;
             for(const i of useIndex){
-                const time = tracks[i][index[i]].deltaTime;
-                if(time > min) continue;
-                min = time;
+                const {deltaTime} = tracks[i][index[i]],
+                      total = deltaTime + totalTime[i];
+                if(total > min) continue;
+                min = total;
                 idx = i;
+                time = deltaTime;
             }
+            totalTime[idx] += time;
+            //if(++cnt>100) throw 114514;
+            //console.log(totalTime);
+            //debug(idx+' '+totalTime[idx])
+            //debug(idx+' '+note)
             const t = tracks[idx],
                   {deltaTime, event} = t[index[idx]],
                   {note, status, velocity, type, data} = event;
+            debug(idx, t[index[idx]]);
             if(deltaTime) {
-                const time = deltaTime * deltaToMs,
+                const total = totalTime[idx],
+                      time = (total - currentTime) * deltaToMs,
                       lastIdx = result.length - 1;
+                //time > 10*1000 && console.log([time, currentTime * deltaTime,t[index[idx]]])
                 if(isNaN(result[lastIdx])) result.push(time);
                 else result[lastIdx] += time;
+                currentTime = total;
+                //console.log(currentTime)
             }
             switch(status & 0xF0){
                 case 0x90: { // ノートオン
                     const v = 100 * velocity / 0x7F | 0;
                     if(!v) break;
-                    debug(idx, note);
                     const tone = note - 21;
                     if(inputMinTone - 1 > tone) break;
                     const id = getSoundId[tone];
                     if(id === void 0) break;
                     result.push(playSound(id, v));
+                    //debug(idx+' '+note+' '+totalTime[idx])
+                    //debug(idx, totalTime[idx]);
                     break;
                 }
                 case 0xF0: { // メタイベント
@@ -287,7 +301,7 @@
     const output = $('<div>').appendTo(h),
           mapData = await(await fetch('data.txt')).text();
     const makeCode = events => rpgen3.addInputStr(output.empty(),{
-        value: rpgen.set(mapData.replace('$music$', `${startEvent}\n${new rpgen.FullEvent(10).make(events)}`.trim())),
+        value: rpgen.set(mapData.replace('$music$', `${startEvent}\n\n${new rpgen.FullEvent(10).make(events)}`.trim())),
         copy: true
     });
     const startEvent = new rpgen.FullEvent().make(['#CH_PH\np:0,x:0,y:0,'], 42, 3);
