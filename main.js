@@ -225,10 +225,10 @@
                   {note, status, velocity, type, data} = event;
             if(deltaTime) {
                 const total = totalTime[idx],
-                      sub = total - currentTime,
+                      ms = (total - currentTime) * deltaToMs,
                       i = result.length - 1;
-                if(isNaN(result[i])) result.push(sub);
-                else result[i] += sub;
+                if(isNaN(result[i])) result.push(ms);
+                else result[i] += ms;
                 currentTime = total;
             }
             switch(status & 0xF0){
@@ -246,6 +246,7 @@
                     break;
                 }
                 default:
+                    debug(status.toString(16));
                     break;
             }
             if(++index[idx] >= t.length) useIndex.splice(useIndex.indexOf(idx), 1);
@@ -264,9 +265,8 @@
         for(const v of arr){
             if(isNaN(v)) result.push(v);
             else {
-                const ms = Math.floor(v) * deltaToMs;
+                const ms = v | 0;
                 if(ms > inputMin) result.push(wait(ms));
-                if(ms > 5000) debug(ms, v);
             }
         }
         return result;
