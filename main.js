@@ -204,33 +204,32 @@
         }));
     };
     const makeMusic = (tracks, checks) => {
-        const result = [];
-        let useIndex = checks.map((v,i)=>v ? i : false).filter(v=>v!==false),
-            index = checks.map(() => 0),
-            totalTime = index.slice(),
-            currentTime = 0;
+        const result = [],
+              useIndex = checks.map((v,i) => v ? i : false).filter(v=>v !== false),
+              index = checks.map(() => 0),
+              totalTime = index.slice();
+        let currentTime = 0;
         while(useIndex.length){
-            let time, idx, min = Infinity;
+            let dt, idx, min = Infinity;
             for(const i of useIndex){
                 const {deltaTime} = tracks[i][index[i]],
                       total = deltaTime + totalTime[i];
                 if(total > min) continue;
                 min = total;
                 idx = i;
-                time = deltaTime;
+                dt = deltaTime;
             }
-            totalTime[idx] += time;
+            totalTime[idx] += dt;
             const t = tracks[idx],
                   {deltaTime, event} = t[index[idx]],
                   {note, status, velocity, type, data} = event;
             if(deltaTime) {
                 const total = totalTime[idx],
-                      time = (total - currentTime) * deltaToMs,
-                      lastIdx = result.length - 1;
-                if(isNaN(result[lastIdx])) result.push(time);
-                else result[lastIdx] += time;
+                      sub = total - currentTime,
+                      i = result.length - 1;
+                if(isNaN(result[i])) result.push(sub);
+                else result[i] += sub;
                 currentTime = total;
-                debug(currentTime * deltaToMs, idx);
             }
             switch(status & 0xF0){
                 case 0x90: { // ノートオン
@@ -249,7 +248,7 @@
                 default:
                     break;
             }
-            if(++index[idx] >= t.length) useIndex = useIndex.filter(v => v !== idx);
+            if(++index[idx] >= t.length) useIndex.splice(useIndex.indexOf(idx), 1);
         }
         return result;
     };
@@ -265,8 +264,9 @@
         for(const v of arr){
             if(isNaN(v)) result.push(v);
             else {
-                const vv = v | 0;
-                if(vv > inputMin) result.push(wait(vv));
+                const ms = Math.floor(v) * deltaToMs;
+                if(ms > inputMin) result.push(wait(ms));
+                if(ms > 5000) debug(ms, v);
             }
         }
         return result;
