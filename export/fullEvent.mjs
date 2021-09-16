@@ -1,6 +1,6 @@
 class Ph {
-    constructor(xx, yy, last, x, events, i){
-        this.head = `#PH${i} tm:0,${i ? 'sw:99,g:,' : ''}`;
+    constructor(xx, yy, last, x, events, i, tm = 1){
+        this.head = `#PH${i} tm:${tm},${i ? 'sw:99,g:,' : ''}`;
         this.body = events;
         this.foot = `#PHEND${i}`;
         const next = (i + 1) % 4;
@@ -15,14 +15,14 @@ class Ph {
     }
 }
 class Event {
-    constructor(xx, yy, last, x, events){
+    constructor(xx, yy, last, x, events, tm){
         this.head = `#EPOINT tx:${x + xx},ty:${yy},`;
         this.body = [];
         this.foot = '#END';
         for(let i = 0; i < 4; i++){
             const j = i * 100,
                   last2 = last - j;
-            this.body.push(new Ph(xx, yy, last2, x, events.slice(j, j + 100), i));
+            this.body.push(new Ph(xx, yy, last2, x, events.slice(j, j + 100), i, tm));
             if(last2 < 100) break;
         }
     }
@@ -38,12 +38,12 @@ export class FullEvent {
     constructor(already = 0){
         this.max = 96 - already;
     }
-    make(events, x = 0, y = 0){
+    make(events, x = 0, y = 0, tm){
         const arr = [];
         for(let i = 0; i < this.max; i++){
             const j = i * 400,
                   last = events.length - j;
-            arr.push(new Event(x, y, last, i, events.slice(j, j + 400)));
+            arr.push(new Event(x, y, last, i, events.slice(j, j + 400), tm));
             if(last < 400) break;
         }
         return arr.map(v => v.toStr()).join('\n\n');
