@@ -1,5 +1,5 @@
 class Ph {
-    constructor(xx, yy, last, x, events, i, tm = 1){
+    constructor(xx, yy, last, x, events, i, tm){
         this.head = `#PH${i} tm:${tm},${i ? 'sw:99,g:,' : ''}`;
         this.body = events;
         this.foot = `#PHEND${i}`;
@@ -38,7 +38,7 @@ export class FullEvent {
     constructor(already = 0){
         this.max = 96 - already;
     }
-    make(events, x = 0, y = 0, tm){
+    make(events, x = 0, y = 0, tm = 1){
         const arr = [];
         for(let i = 0; i < this.max; i++){
             const j = i * 400,
