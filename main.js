@@ -1,43 +1,48 @@
 (async () => {
+    const {importAll, getScript, importAllSettled} = await import(`https://rpgen3.github.io/mylib/export/import.mjs`);
     await Promise.all([
-        'https://rpgen3.github.io/lib/lib/jquery-3.5.1.min.js',
+        'https://code.jquery.com/jquery-3.3.1.min.js',
         'https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.26/Tone.js'
-    ].map(v => import(v)));
-    $.getScript('https://cdnjs.cloudflare.com/ajax/libs/lz-string/1.4.4/lz-string.min.js');
-    const rpgen3 = await Promise.all([
+    ].map(getScript));
+    const $ = window.$;
+    const html = $('body').empty().css({
+        'text-align': 'center',
+        padding: '1em',
+        'user-select': 'none'
+    });
+    const head = $('<dl>').appendTo(html),
+          body = $('<dl>').appendTo(html).hide(),
+          foot = $('<dl>').appendTo(html).hide();
+    const rpgen3 = await importAll([
         'input',
         'util'
-    ].map(v => import(`https://rpgen3.github.io/mylib/export/${v}.mjs`))).then(v => Object.assign({},...v));
-    const h = $('body').css({
-        'text-align': 'center',
-        padding: '1em'
-    });
-    const addBtn = (parent, ttl, func) => $('<button>').appendTo(parent).text(ttl).on('click', func);
-    $('<h1>').appendTo(h).text('MIDIファイルを読み込む');
-    const msg = (()=>{
-        const elm = $('<div>').appendTo(h);
+    ].map(v => `https://rpgen3.github.io/mylib/export/${v}.mjs`));
+    $('<div>').appendTo(head).text('MIDIファイルを読み込む');
+    const addBtn = (h, ttl, func) => $('<button>').appendTo(h).text(ttl).on('click', func);
+    const msg = (() => {
+        const elm = $('<div>').appendTo(body);
         return (str, isError) => $('<span>').appendTo(elm.empty()).text(str).css({
             color: isError ? 'red' : 'blue',
             backgroundColor: isError ? 'pink' : 'lightblue'
         });
     })();
-    const sleep = ms => new Promise(resolve=>setTimeout(resolve, ms));
+    const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
     const dialog = async str => {
         msg(str);
         await sleep(30);
     };
-    const inputBPM = rpgen3.addInputNum(h,{
+    const inputBPM = rpgen3.addInputNum(head,{
         label: 'BPM(優先度低)',
         save: true,
         value: 130,
         max: 500,
         min: 50
     });
-    const importantBPM = rpgen3.addInputBool(h,{
+    const importantBPM = rpgen3.addInputBool(head,{
         label: '手動入力のBPMを優先',
         save: true
     })
-    const inputMin = rpgen3.addInputNum(h,{
+    const inputMin = rpgen3.addInputNum(head,{
         label: '下限のwait時間[ms]',
         save: true,
         value: 30,
@@ -56,20 +61,20 @@
         }
         return {semiTone, hz, hzToNote: ar};
     })();
-    const inputMinTone = rpgen3.addInputNum(h,{
+    const inputMinTone = rpgen3.addInputNum(head,{
         label: '下限の音階',
         save: true,
         value: 10,
         max: piano.hz.length,
         min: 0
     });
-    const hMinTone = $('<div>').appendTo(h);
+    const hMinTone = $('<div>').appendTo(head);
     inputMinTone.elm.on('input click',() => {
         const note = piano.hzToNote[inputMinTone - 1];
         hMinTone.text(note);
         new Tone.Synth().toMaster().triggerAttackRelease(note, '16n');
     }).trigger('input');
-    $('<input>').appendTo(h).prop({
+    $('<input>').appendTo(head).prop({
         type: 'file',
         accept: '.mid'
     }).on('change', e => {
@@ -82,10 +87,11 @@
         fr.readAsArrayBuffer(e.target.files[0]);
     });
     let loaded;
-    addBtn(h, '処理開始', () => {
+    addBtn(head, '処理開始', () => {
         if(!loaded) return msg('MIDIファイルを読み込んでください', true);
         load(new Uint8Array(loaded)); // 型付配列に
         output.empty();
+        body.add(foot).show();
     });
     let deltaToMs;
     const load = async data => {
@@ -190,7 +196,7 @@
             }
         }
     };
-    const hChecks = $('<div>').appendTo(h);
+    const hChecks = $('<div>').appendTo(body);
     const selectTracks = tracks => {
         hChecks.empty();
         const arr = [];
@@ -285,7 +291,7 @@
         './export/rpgen.mjs',
         './export/fullEvent.mjs'
     ].map(v=>import(v))).then(v => Object.assign({},...v));
-    const output = $('<div>').appendTo(h),
+    const output = $('<div>').appendTo(foot),
           mapData = await(await fetch('data.txt')).text();
     const makeCode = events => rpgen3.addInputStr(output.empty(),{
         value: rpgen.set(mapData.replace('$music$', `${startEvent}\n\n${new rpgen.FullEvent(10).make(events)}`.trim())),
