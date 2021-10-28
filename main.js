@@ -168,14 +168,13 @@
                 case 8:
                 case 9: {
                     const [note, velocity] = data,
-                          v = 100 * velocity / 0x7F | 0,
-                          isNoteOFF = type === 8 || !v;
+                          isNoteOFF = type === 8 || !velocity;
                     if(isNoteOFF) break;
                     const tone = note - 21;
                     if(inputMinTone - 1 > tone) continue;
                     const id = getSoundId[tone];
                     if(id === void 0) continue;
-                    result.push(playSound(id, v));
+                    result.push(playSound(id, 100 * velocity / 0x7F | 0));
                     break;
                 }
             }
