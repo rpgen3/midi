@@ -51,7 +51,7 @@
         addSelectTracks();
     });
     $('<div>').appendTo(body).text('諸々の調整');
-    const inputMinTone = rpgen3.addInputNum(head,{
+    const inputMinTone = rpgen3.addInputNum(body,{
         label: '下限の音階',
         save: true,
         value: 10,
