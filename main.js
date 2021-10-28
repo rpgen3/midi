@@ -51,11 +51,18 @@
         addSelectTracks();
     });
     $('<div>').appendTo(body).text('諸々の調整');
+    const inputMinTone = rpgen3.addInputNum(head,{
+        label: '下限の音階',
+        save: true,
+        value: 10,
+        max: piano.hz.length,
+        min: 0
+    });
     const inputDiff = rpgen3.addInputNum(body,{
         label: 'setTimeoutの誤差を引く[ms]',
         save: true,
         value: 30,
-        max: 100,
+        max: 500,
         min: 0
     });
     addBtn(body, 'MIDIデータからBPMを取得する', () => {
@@ -163,8 +170,9 @@
                           v = 100 * velocity / 0x7F | 0,
                           isNoteOFF = !v;
                     if(isNoteOFF) break;
-                    const tone = note - 21,
-                          id = getSoundId[tone];
+                    const tone = note - 21;
+                    if(inputMinTone - 1 > tone) continue;
+                    const id = getSoundId[tone];
                     if(id === void 0) continue;
                     result.push(playSound(id, v));
                     break;
