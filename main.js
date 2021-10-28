@@ -165,10 +165,11 @@
                 currentTime = total;
             }
             switch(type){
+                case 8:
                 case 9: {
                     const [note, velocity] = data,
                           v = 100 * velocity / 0x7F | 0,
-                          isNoteOFF = !v;
+                          isNoteOFF = type === 8 || !v;
                     if(isNoteOFF) break;
                     const tone = note - 21;
                     if(inputMinTone - 1 > tone) continue;
