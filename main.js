@@ -1,10 +1,15 @@
 (async () => {
-    const {importAll, getScript, importAllSettled} = await import(`https://rpgen3.github.io/mylib/export/import.mjs`);
+    const {importAll, getScript} = await import(`https://rpgen3.github.io/mylib/export/import.mjs`);
     await Promise.all([
         'https://code.jquery.com/jquery-3.3.1.min.js',
-        'https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.26/Tone.js'
+        'https://colxi.info/midi-parser-js/src/main.js'
     ].map(getScript));
-    const $ = window.$;
+    const {$, MidiParser} = window;
+    const rpgen3 = await importAll([
+        'input',
+        'util'
+    ].map(v => `https://rpgen3.github.io/mylib/export/${v}.mjs`));
+    const addBtn = (h, ttl, func) => $('<button>').appendTo(h).text(ttl).on('click', func);
     const html = $('body').empty().css({
         'text-align': 'center',
         padding: '1em',
@@ -13,12 +18,6 @@
     const head = $('<dl>').appendTo(html),
           body = $('<dl>').appendTo(html).hide(),
           foot = $('<dl>').appendTo(html).hide();
-    const rpgen3 = await importAll([
-        'input',
-        'util'
-    ].map(v => `https://rpgen3.github.io/mylib/export/${v}.mjs`));
-    $('<div>').appendTo(head).text('MIDIファイルを読み込む');
-    const addBtn = (h, ttl, func) => $('<button>').appendTo(h).text(ttl).on('click', func);
     const msg = (() => {
         const elm = $('<div>').appendTo(body);
         return (str, isError) => $('<span>').appendTo(elm.empty()).text(str).css({
@@ -26,236 +25,152 @@
             backgroundColor: isError ? 'pink' : 'lightblue'
         });
     })();
-    const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
-    const dialog = async str => {
-        msg(str);
-        await sleep(30);
-    };
-    const inputBPM = rpgen3.addInputNum(head,{
-        label: 'BPM(優先度低)',
-        save: true,
-        value: 130,
-        max: 500,
-        min: 50
-    });
-    const importantBPM = rpgen3.addInputBool(head,{
-        label: '手動入力のBPMを優先',
-        save: true
-    })
-    const inputMin = rpgen3.addInputNum(head,{
-        label: '下限のwait時間[ms]',
-        save: true,
-        value: 30,
-        max: 100,
-        min: 0
-    });
+    const sleep = ms => new Promise(resolve => setTimeout(resolve, ms)),
+          dialog = async str => (msg(str), sleep(30));
     const piano = (()=>{
         const semiTone = Math.exp(1/12 * Math.log(2)),
-              hz = [...new Array(87)].reduce((p, x) => ([p[0] * semiTone].concat(p)), [27.5]).reverse();
-        const ar = [],
+              hz = [...new Array(87)].reduce((p, x) => ([p[0] * semiTone].concat(p)), [27.5]).reverse(),
+              ar = [],
               ptn = 'AABCCDDEFFGG',
               idxs = ptn.split('').map(v => ptn.indexOf(v));
         for(const i of hz.keys()){
             const j = i % ptn.length;
             ar.push(ptn[j] + (idxs.includes(j) ? '' : '#') + ((i + 9) / ptn.length | 0));
         }
-        return {semiTone, hz, hzToNote: ar};
+        return {hz, hzToNote: ar};
     })();
-    const inputMinTone = rpgen3.addInputNum(head,{
-        label: '下限の音階',
-        save: true,
-        value: 10,
-        max: piano.hz.length,
-        min: 0
-    });
-    const hMinTone = $('<div>').appendTo(head);
-    inputMinTone.elm.on('input click',() => {
-        const note = piano.hzToNote[inputMinTone - 1];
-        hMinTone.text(note);
-        new Tone.Synth().toMaster().triggerAttackRelease(note, '16n');
-    }).trigger('input');
-    $('<input>').appendTo(head).prop({
+    $('<div>').appendTo(head).text('MIDIファイルを読み込む');
+    let g_midi = null;
+    MidiParser.parse($('<input>').appendTo(head).prop({
         type: 'file',
         accept: '.mid'
-    }).on('change', e => {
-        msg('読み込み中');
-        const fr = new FileReader;
-        fr.onload = () => {
-            loaded = fr.result;
-            msg('読み込み完了');
-        };
-        fr.readAsArrayBuffer(e.target.files[0]);
+    }).get(0), result => {
+        g_midi = result;
+        msg('MIDIファイルを読み込んだ');
+        body.show();
+        addSelectTracks();
     });
-    let loaded;
-    addBtn(head, '処理開始', () => {
-        if(!loaded) return msg('MIDIファイルを読み込んでください', true);
-        load(new Uint8Array(loaded)); // 型付配列に
-        output.empty();
-        body.add(foot).show();
+    $('<div>').appendTo(body).text('諸々の調整');
+    const inputDiff = rpgen3.addInputNum(body,{
+        label: 'setTimeoutの誤差を引く[ms]',
+        save: true,
+        value: 30,
+        max: 100,
+        min: 0
     });
-    let deltaToMs;
-    const load = async data => {
-        await dialog('MIDIファイルを解析します');
-        tracks = [];
-        const header = parseHeader(data);
-        parseTracks(data.subarray(8 + header.size));
-        const tempo = importantBPM() ? inputBPM() : findTempo(tracks) || inputBPM();
-        deltaToMs = 1000 * 60 / tempo / header.timeBase;
-        await dialog('どのトラックを使う？');
-        const checks = await selectTracks(tracks),
-              events = joinWait(trim(makeMusic(tracks, checks)));
-        await dialog(`イベントの数：${events.length}`);
-        makeCode(events);
-        console.log(debug.map);
-    };
-    const debug = (()=>{
-        const map = new Map;
-        const f = (...arr) => {
-            const [a, b] = arr;
-            if(arr.length === 1){
-                if(map.has(a)) map.set(a, map.get(a) + 1);
-                else map.set(a, 1);
+    addBtn(body, 'MIDIデータからBPMを取得する', () => {
+        const {track} = g_midi;
+        let bpm = 0;
+        for(const {event} of track) {
+            for(const v of event) {
+                if(v.type !== 255 || v.metaType !== 81) continue;
+                bpm = 60000000 / v.data;
+                break;
             }
-            else {
-                if(!map.has(a)) map.set(a, []);
-                map.get(a).push(b);
+            if(bpm) break;
+        }
+        if(bpm) {
+            inputBPM(bpm);
+            msg('BPMを取得できた');
+        }
+        else msg('BPMを取得できなかった');
+    });
+    const inputBPM = (() => {
+        const bpmMin = 40,
+              bpmMax = 300;
+        const inputBPM = rpgen3.addInputNum(body,{
+            label: 'BPM',
+            save: true,
+            value: 140,
+            min: bpmMin,
+            max: bpmMax
+        });
+        let calcBPM = new class {
+            constructor(){
+                this.old = 0;
+                this.ar = [];
+            }
+            main(){
+                const now = performance.now(),
+                      bpm = 1 / (now - this.old) * 1000 * 60;
+                this.old = now;
+                if(bpm < bpmMin || bpm > bpmMax) return;
+                this.ar.push(bpm);
+                inputBPM(this.ar.reduce((p,x) => p + x) / this.ar.length);
             }
         };
-        f.map = map;
-        return f;
+        addBtn(body, 'タップでBPM計測', () => calcBPM.main());
+        addBtn(body, '計測リセット', () => {
+            calcBPM = new calcBPM.constructor();
+        });
+        return inputBPM;
     })();
-    const toNum = arr => arr.reduce((p, x) => (p << 8) + x);
-    const isEqual = (a, b) => JSON.stringify(a) === JSON.stringify(b);
-    const parseHeader = data => {
-        if(isEqual(data.subarray(0, 3), [0x4D, 0x54, 0x68, 0x64])) throw new Error('this is not MIDI header');
-        return {
-            size : toNum(data.subarray(4, 8)), // ヘッダのサイズ
-            format : data[9], // SMFフォーマット
-            trackSize : toNum(data.subarray(10, 12)), // トラック数
-            timeType : data[12], // 時間管理
-            timeBase : toNum(data.subarray(12, 14)) // 分解能
-        };
-    };
-    let tracks;
-    const parseTracks = data => {
-        while(1){
-            if(isEqual(data.subarray(0, 3), [0x4D, 0x54, 0x72, 0x6B])) throw new Error('this is not MIDI track');
-            const size = toNum(data.subarray(4, 8)),
-                  next = 8 + size,
-                  track = data.subarray(8, next);
-            tracks.push([]);
-            parseTrackData(track);
-            if(data.length <= next) break;
-            data = data.subarray(next, data.length);
-        }
-    };
-    const parseTrackData = data => {
-        while(1){
-            const [nextData, deltaTime] = getDeltaTime(data),
-                  [nextData2, event] = getEvent(nextData);
-            tracks[tracks.length - 1].push({deltaTime, event});
-            if(nextData2.length === 0) break;
-            data = nextData2;
-        }
-    };
-    const getDeltaTime = data => {
-        let deltaTime = 0,
-            i = 0;
-        while(1){
-            const tmp = data[i++];
-            deltaTime |= tmp & 0x7f; // 下位7bitを格納
-            if((tmp & 0x80) === 0) break; // 最上位1bitが0ならデータ終了
-            deltaTime <<= 7; // 次の下位7bit用にビット移動
-        }
-        return [data.subarray(i, data.length), deltaTime];
-    };
-    const getEvent = data => {
-        const event = {};
-        event.status = data[0]; // ステータスバイトを取得
-        if(event.status === 0xFF){ // メタイベントの場合
-            event.type = data[1]; // イベントタイプ
-            event.size = toNum(data.subarray(2,3)); // メタイベントのデータ量は3バイト目に保持されている
-            event.data = data.subarray(3,3+event.size); // データ
-            data = data.subarray(3+event.size,data.length); // 残りの配列
-        }
-        else if(event.status >=0x80 && event.status <=0x9F){
-            event.channel = event.status & 0xf; // チャンネル
-            event.note = data[1]; // 音高は2バイト目
-            event.velocity=data[2]; // ヴェロシティ
-            data = data.subarray(3,data.length); // 残りの配列
-        }
-        return [data, event]; // 取得したイベントと配列の残りをリターン
-    };
-    const findTempo = tracks => {
-        const MICROSECONDS_PER_MINUTE = 60000000;
-        for(const track of tracks){
-            for(const t of track){
-                const {event} = t,
-                      {status, type, data} = event;
-                if(type === 0x51) return MICROSECONDS_PER_MINUTE / toNum(data);
-            }
-        }
-    };
     const hChecks = $('<div>').appendTo(body);
-    const selectTracks = tracks => {
+    const selectTracks = [];
+    const addSelectTracks = () => {
+        const {track} = g_midi;
         hChecks.empty();
-        const arr = [];
-        for(const [i,v] of tracks.entries()) arr.push(rpgen3.addInputBool(hChecks,{
-            label: `チャンネル${i}　トラック数：${v.length}`,
+        while(selectTracks.length) selectTracks.pop();
+        for(const [i, {event}] of track.entries()) selectTracks.push(rpgen3.addInputBool(hChecks,{
+            label: `チャンネル${i}　トラック数：${event.length}`,
             value: true
         }));
-        return new Promise(resolve => addBtn(hChecks, '選択を確定', () => {
-            hChecks.empty();
-            resolve(arr.map(v => v()));
-        }));
     };
-    const makeMusic = (tracks, checks) => {
-        const result = [],
-              useIndex = checks.map((v,i) => v ? i : false).filter(v=>v !== false),
-              index = checks.map(() => 0),
-              totalTime = index.slice();
+    addBtn(body, '処理開始', () => main());
+    const main = async data => {
+        const events = joinWait(trim(makeMusic()));
+        await dialog(`イベントの数：${events.length}`);
+        makeCode(events);
+    };
+    const makeMusic = () => {
+        const {formatType, track, timeDivision} = g_midi;
+        if(formatType !== 1) throw `MIDI formatType is ${formatType}.`;
+        const deltaToMs = 1000 * 60 / inputBPM() / timeDivision,
+              currentIndexs = [...new Array(track.length).fill(0)],
+              totalTimes = currentIndexs.slice(),
+              _indexs = selectTracks.flatMap((v, i) => v() ? [i] : []),
+              result = [];
         let currentTime = 0;
-        while(useIndex.length){
-            let dt, idx, min = Infinity;
-            for(const i of useIndex){
-                const {deltaTime} = tracks[i][index[i]],
-                      total = deltaTime + totalTime[i];
+        const getMin = () => {
+            let min = Infinity,
+                idx = 0;
+            for(const index of _indexs) {
+                const {event} = track[index],
+                      {deltaTime} = event[currentIndexs[index]],
+                      total = deltaTime + totalTimes[index];
                 if(total > min) continue;
                 min = total;
-                idx = i;
-                dt = deltaTime;
+                idx = index;
             }
-            totalTime[idx] += dt;
-            const t = tracks[idx],
-                  {deltaTime, event} = t[index[idx]],
-                  {note, status, velocity, type, data} = event;
+            return idx;
+        };
+        while(_indexs.length){
+            const index = getMin(),
+                  {event} = track[index],
+                  {deltaTime, type, data} = event[currentIndexs[index]];
+            totalTimes[index] += deltaTime;
             if(deltaTime) {
-                const total = totalTime[idx],
+                const total = totalTimes[index],
                       ms = (total - currentTime) * deltaToMs,
                       i = result.length - 1;
                 if(isNaN(result[i])) result.push(ms);
                 else result[i] += ms;
                 currentTime = total;
             }
-            switch(status & 0xF0){
-                case 0x90: { // ノートオン
-                    const v = 100 * velocity / 0x7F | 0;
-                    if(!v) break;
-                    const tone = note - 21;
-                    if(inputMinTone - 1 > tone) break;
-                    const id = getSoundId[tone];
-                    if(id === void 0) break;
+            switch(type){
+                case 9: {
+                    const [note, velocity] = data,
+                          v = 100 * velocity / 0x7F | 0,
+                          isNoteOFF = !v;
+                    if(isNoteOFF) break;
+                    const tone = note - 21,
+                          id = getSoundId[tone];
+                    if(id === void 0) continue;
                     result.push(playSound(id, v));
                     break;
                 }
-                case 0xF0: { // メタイベント
-                    break;
-                }
-                default:
-                    debug(status.toString(16));
-                    break;
             }
-            if(++index[idx] >= t.length) useIndex.splice(useIndex.indexOf(idx), 1);
+            if(++currentIndexs[index] >= event.length) _indexs.splice(_indexs.indexOf(index), 1);
         }
         return result;
     };
@@ -271,8 +186,8 @@
         for(const v of arr){
             if(isNaN(v)) result.push(v);
             else {
-                const ms = v | 0;
-                if(ms > inputMin) result.push(wait(ms));
+                const ms = v - inputDiff();
+                if(ms > 0) result.push(wait(ms | 0));
             }
         }
         return result;
@@ -287,13 +202,12 @@
             range(822, 825)
         ].flat();
     })();
-    const rpgen = await Promise.all([
-        './export/rpgen.mjs',
-        './export/fullEvent.mjs'
-    ].map(v=>import(v))).then(v => Object.assign({},...v));
-    const output = $('<div>').appendTo(foot),
-          mapData = await(await fetch('data.txt')).text();
-    const makeCode = events => rpgen3.addInputStr(output.empty(),{
+    const rpgen = await importAll([
+        'rpgen',
+        'fullEvent'
+    ].map(v => `https://rpgen3.github.io/midi/export/${v}.mjs`));
+    const mapData = await(await fetch('data.txt')).text();
+    const makeCode = events => rpgen3.addInputStr(foot.empty().show(),{
         value: rpgen.set(mapData.replace('$music$', `${startEvent}\n\n${new rpgen.FullEvent(10).make(events)}`.trim())),
         copy: true
     });
