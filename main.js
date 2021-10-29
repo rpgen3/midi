@@ -124,7 +124,7 @@
         }));
     };
     addBtn(body, '処理開始', () => main());
-    const main = async data => {
+    const main = async () => {
         const events = joinWait(trim(makeMusic()));
         await dialog(`イベントの数：${events.length}`);
         makeCode(events);
