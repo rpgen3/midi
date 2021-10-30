@@ -127,7 +127,7 @@
     const main = async () => {
         const events = joinWait(trim(makeMusic()));
         await dialog(`イベントの数：${events.length}`);
-        makeCode(events);
+        output(events);
     };
     const makeMusic = () => {
         const {track} = g_midi,
@@ -214,10 +214,22 @@
         'rpgen',
         'fullEvent'
     ].map(v => `https://rpgen3.github.io/midi/export/${v}.mjs`));
-    const mapData = await(await fetch('data.txt')).text();
-    const makeCode = events => rpgen3.addInputStr(foot.empty().show(),{
-        value: rpgen.set(mapData.replace('$music$', `${startEvent}\n\n${new rpgen.FullEvent(10).make(events)}`.trim())),
+    const mapData = await(await fetch('data/piano5.txt')).text(),
+          hCode = $('<div>').appendTo(foot),
+          list5 = [];
+    const outputCode = n => rpgen3.addInputStr(hCode.empty(), {
+        value: rpgen.set(
+            mapData + [...new Array(Math.min(n, list5.length)).keys()]
+            .map(i => new rpgen.FullEvent(10).make(list5[i], 0, 11 + i))
+            .join('\n\n')
+        ),
         copy: true
     });
-    const startEvent = new rpgen.FullEvent().make(['#CH_PH\np:0,x:0,y:0,'], 42, 3);
+    const output = events => {
+        list5.unshift(events);
+        outputCode(1);
+        if(list5.length > 5) list5.pop();
+        foot.show();
+    };
+    addBtn(foot, '5連出力', () => outputCode(5));
 })();
