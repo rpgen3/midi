@@ -194,8 +194,8 @@
         for(const v of arr){
             if(isNaN(v)) result.push(v);
             else {
-                const time = v - inputDiff();
-                if(time >= 0) result.push(wait(time * deltaToMs | 0));
+                const ms = v * deltaToMs - inputDiff();
+                if(ms >= 0) result.push(wait(ms | 0));
             }
         }
         return result;
