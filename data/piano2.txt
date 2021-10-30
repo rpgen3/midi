@@ -380,5 +380,3 @@ tx:33,ty:6,t:300,
 #ED
 #PHEND0
 #END
-
-$music$
