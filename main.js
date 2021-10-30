@@ -130,9 +130,7 @@
         makeCode(events);
     };
     const makeMusic = () => {
-        const {formatType, track, timeDivision} = g_midi;
-        if(formatType !== 1) throw `MIDI formatType is ${formatType}.`;
-        const deltaToMs = 1000 * 60 / inputBPM() / timeDivision,
+        const {track} = g_midi,
               currentIndexs = [...new Array(track.length).fill(0)],
               totalTimes = currentIndexs.slice(),
               _indexs = selectTracks.flatMap((v, i) => v() ? [i] : []),
@@ -158,10 +156,10 @@
             totalTimes[index] += deltaTime;
             if(deltaTime) {
                 const total = totalTimes[index],
-                      ms = (total - currentTime) * deltaToMs,
+                      time = total - currentTime,
                       i = result.length - 1;
-                if(isNaN(result[i])) result.push(ms);
-                else result[i] += ms;
+                if(isNaN(result[i])) result.push(time);
+                else result[i] += time;
                 currentTime = total;
             }
             switch(type){
@@ -190,12 +188,14 @@
         return arr.slice(start, end);
     };
     const joinWait = arr => {
-        const result = [];
+        const {timeDivision} = g_midi,
+              deltaToMs = 1000 * 60 / inputBPM() / timeDivision,
+              result = [];
         for(const v of arr){
             if(isNaN(v)) result.push(v);
             else {
-                const ms = v - inputDiff();
-                if(ms > 0) result.push(wait(ms | 0));
+                const time = v - inputDiff();
+                if(time > 0) result.push(wait(time * deltaToMs | 0));
             }
         }
         return result;
