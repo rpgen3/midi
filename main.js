@@ -232,4 +232,5 @@
         foot.show();
     };
     addBtn(foot, '5連出力', () => outputCode(5));
+    addBtn(foot, '1個消す', () => list5.shift());
 })();
