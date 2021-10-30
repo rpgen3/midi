@@ -195,7 +195,7 @@
             if(isNaN(v)) result.push(v);
             else {
                 const time = v - inputDiff();
-                if(time > 0) result.push(wait(time * deltaToMs | 0));
+                if(time >= 0) result.push(wait(time * deltaToMs | 0));
             }
         }
         return result;
