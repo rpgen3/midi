@@ -21,10 +21,19 @@ function getFile(){
     apprise('コピー完了');
 }
 function write(){
+    $.post(dqSock.getRPGBase() + 'cons/writeMapText.php',{
+        token: g_token,
+        index: parseInt(dq.mapNum),
+        mapText: (dq.bOpenScr ? '' : 'L1') + map,
+    }).done(function(r){
+        if ( r != 0 ) apprise("error");
+    }).fail(function(){
+        apprise("error");
+    });
     var mapTextOld = map, mapText = LZString.compressToEncodedURIComponent(mapTextOld);
     if (mapTextOld != LZString.decompressFromEncodedURIComponent(mapText)) return apprise('out');
-    if (dq.bOpenScr) mapText = mapTextOld
-    else mapText = 'L1' + mapText
+    if (dq.bOpenScr) mapText = mapTextOld;
+    else mapText = 'L1' + mapText;
     $.ajax({
         type: 'POST',
         url: dqSock.getRPGBase() + 'cons/writeMap.php',
@@ -32,13 +41,13 @@ function write(){
         data: {token: g_token, i: parseInt(dq.mapNum), m: mapText, p: ''},
     }).done(function(r){
         if ( r != 0 ){
-            isError = true
-            apprise('failed')
-            g_oldWriteText = ''
+            isError = true;
+            apprise('failed');
+            g_oldWriteText = '';
         }
     }).fail(function(){
-        isError = true
-        apprise('failed')
-        g_oldWriteText = ''
+        isError = true;
+        apprise('failed');
+        g_oldWriteText = '';
     })
 }
