@@ -2,20 +2,19 @@ import {getScript} from 'https://rpgen3.github.io/mylib/export/import.mjs';
 getScript('https://cdnjs.cloudflare.com/ajax/libs/lz-string/1.4.4/lz-string.min.js');
 const toStr = func => String(func).replace(/\/\/.*\n/g,'');
 export const set = input => {
-    const pass = Date.now().toString(16),
-          mapText = input.split('\n').join(pass);
+    const data = LZString.compressToEncodedURIComponent(input);
     const code = () => `avascript:(()=>{
     const copy = window.getCurrentMapText;
     window.getCurrentMapText = () => {
     window.getCurrentMapText = copy;
-    return '${mapText}'.split('${pass}').join('\\n');
+    return LZString.decompressFromEncodedURIComponent('${data}');
     };
     $('#idBtnDqEditEnd').click();
     })();`;
     return {
         valueOf: code,
         toString: code,
-        data: LZString.compressToEncodedURIComponent(input)
+        data
     };
 };
 export const get = () => "avascript:(" + toStr(getFile) + ")();";
