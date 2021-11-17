@@ -3,13 +3,12 @@ getScript('https://cdnjs.cloudflare.com/ajax/libs/lz-string/1.4.4/lz-string.min.
 const toStr = func => String(func).replace(/\/\/.*\n/g,'');
 export const set = input => {
     const pass = Date.now().toString(16),
-          mapText = input.replace(/\n/g, pass);
+          mapText = input.split('\n').join(pass);
     const code = () => `avascript:(()=>{
-    const m='${JSON.stringify(input)}';
     const copy = window.getCurrentMapText;
     window.getCurrentMapText = () => {
     window.getCurrentMapText = copy;
-    return '${mapText}'.replace(/${pass}/g, '\n');
+    return '${mapText}'.split('${pass}').join('\\n');
     };
     $('#idBtnDqEditEnd').click();
     })();`;
