@@ -9,7 +9,7 @@ export const set = input => {
     const copy = window.getCurrentMapText;
     window.getCurrentMapText = () => {
     window.getCurrentMapText = copy;
-    return ${mapText}.replace(/${pass}/g, '\n');
+    return '${mapText}'.replace(/${pass}/g, '\n');
     };
     $('#idBtnDqEditEnd').click();
     })();`;
