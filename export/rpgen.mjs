@@ -21,15 +21,6 @@ function getFile(){
     apprise('コピー完了');
 }
 function write(){
-    $.post(dqSock.getRPGBase() + 'cons/writeMapText.php',{
-        token: g_token,
-        index: parseInt(dq.mapNum),
-        mapText: (dq.bOpenScr ? '' : 'L1') + map,
-    }).done(function(r){
-        if ( r != 0 ) apprise("error");
-    }).fail(function(){
-        apprise("error");
-    });
     var mapTextOld = map, mapText = LZString.compressToEncodedURIComponent(mapTextOld);
     if (mapTextOld != LZString.decompressFromEncodedURIComponent(mapText)) return apprise('out');
     if (dq.bOpenScr) mapText = mapTextOld;
