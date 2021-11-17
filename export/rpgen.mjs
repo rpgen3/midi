@@ -6,7 +6,7 @@ export const set = input => {
     const code = () => `avascript:(()=>{
     const copy = window.getCurrentMapText;
     window.getCurrentMapText = () => {
-    window.getCurrentMapText = copy;
+    setTimeout(() => window.getCurrentMapText = copy, 3000);
     return LZString.decompressFromEncodedURIComponent('${data}');
     };
     $('#idBtnDqEditEnd').click();
