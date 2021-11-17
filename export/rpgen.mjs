@@ -2,7 +2,8 @@ import {getScript} from 'https://rpgen3.github.io/mylib/export/import.mjs';
 getScript('https://cdnjs.cloudflare.com/ajax/libs/lz-string/1.4.4/lz-string.min.js');
 const toStr = func => String(func).replace(/\/\/.*\n/g,'');
 export const set = input => {
-    const code = () => `avascript:(()=>{var m='${JSON.stringify(input)}';window.getCurrentMapText=()=>JSON.stringify(m);$('#idBtnDqEditEnd').click();})();`;
+    const data = LZString.compressToEncodedURIComponent(input),
+          code = () => `avascript:(()=>{var m='${JSON.stringify(input)}';window.getCurrentMapText=()=>JSON.stringify(m);$('#idBtnDqEditEnd').click();})();`;
     return {
         valueOf: code,
         toString: code,
