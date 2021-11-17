@@ -20,7 +20,7 @@ export const set = input => {
 export const get = () => "avascript:(" + toStr(getFile) + ")();";
 function getFile(){
     var e = document.createElement("textarea");
-    e.textContent = LZString.compressToEncodedURIComponent(g_dqFile);
+    e.textContent = LZString.compressToEncodedURIComponent(getCurrentMapText());
     document.body.appendChild(e);
     e.select();
     document.execCommand('copy');
