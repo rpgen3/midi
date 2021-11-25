@@ -11,12 +11,25 @@ export const piano = new class {
         }
         this.hz = hz;
         this.note = ar;
-        const m = new Map;
-        for(const [i, v] of ar.entries()) m.set(v, hz[i]);
-        this.m = m;
+        {
+            const m = new Map;
+            for(const [i, v] of ar.entries()) m.set(v, i);
+            this._note2index = m;
+        }
+        {
+            const m = new Map;
+            for(const [i, v] of ar.entries()) m.set(v, hz[i]);
+            this._note2hz = m;
+        }
+    }
+    note2index(note){
+        const {m} = this._note2index;
+        if(!m.has(note)) throw 'invalid note';
+        return m.get(note);
     }
     note2hz(note){
-        if(!this.m.has(note)) throw 'invalid note';
-        return this.m.get(note);
+        const {m} = this._note2hz;
+        if(!m.has(note)) throw 'invalid note';
+        return m.get(note);
     }
 };
