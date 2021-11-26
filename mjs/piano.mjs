@@ -23,13 +23,13 @@ export const piano = new class {
         }
     }
     note2index(note){
-        const {m} = this._note2index;
-        if(!m.has(note)) throw 'invalid note';
-        return m.get(note);
+        const m = this._note2index;
+        if(m.has(note)) return m.get(note);
+        else throw 'invalid note';
     }
     note2hz(note){
-        const {m} = this._note2hz;
-        if(!m.has(note)) throw 'invalid note';
-        return m.get(note);
+        const m = this._note2hz;
+        if(m.has(note)) return m.get(note);
+        else throw 'invalid note';
     }
 };
