@@ -211,7 +211,7 @@
                 }
             }
             if(++currentIndexs[index] >= event.length) _indexs.splice(_indexs.indexOf(index), 1);
-            if(!(++_ % 1000)) await msg.print(`処理中(${currentIndexs[index]} ${ event.length})`);
+            if(!(++_ % 1000)) await msg.print(`処理中(${currentIndexs[index]} ${event.length})`);
         }
         return result;
     };
@@ -257,7 +257,7 @@
         rpgen3.addInputStr(hCode.empty(), {
             value: rpgen.set(
                 d + [...new Array(Math.min(n, evtList.length)).keys()]
-                .map(i => new rpgen.FullEvent(1).make(evtList[i], 3, 6 + i))
+                .map(i => new rpgen.FullEvent(1).make(evtList[i], 3, 6 + i, 0))
                 .join('\n\n')
             ),
             copy: true
