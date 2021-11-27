@@ -66,6 +66,9 @@
     const tracks = new class {
         constructor(){
             const html = midi.track;
+            rpgen3.addBtn(html, '反転', () => {
+                for(const v of this.checks) v(!v());
+            }).addClass('btn');
             this.input = $('<dl>').appendTo(html).addClass('container');
             this.checks = [];
         }
@@ -146,9 +149,7 @@
     rpgen3.addBtn(main, '処理の開始', async () => {
         if(started) return;
         started = true;
-        const now = performance.now();
         await makeMap();
-        msg.print(`処理が完了しました。(所要時間：${rpgen3.getTime(performance.now() - now)})`);
         started = false;
     }).addClass('btn');
     const msg = new class {
@@ -205,7 +206,7 @@
                           isNoteOFF = type === 8 || !velocity;
                     if(isNoteOFF) break;
                     const id = getSoundId[note - 21];
-                    if(id === void 0) continue;
+                    if(id === void 0) break;
                     result.push(playSound(id, 100 * velocity / 0x7F | 0));
                     break;
                 }
@@ -251,7 +252,7 @@
     const outputCode = n => {
         const d = mapData.replace('$init$', [
             getSoundId.map(v => playSound(v, 1)),
-            wait(5000)
+            wait(3000)
         ].flat().map(v => v + '\n#ED').join('\n'));
         rpgen3.addInputStr(hCode.empty(), {
             value: rpgen.set(
