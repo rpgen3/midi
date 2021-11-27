@@ -144,7 +144,7 @@
             });
             rpgen3.addBtn(html, 'タップでBPM計測', () => this.update()).addClass('btn');
             rpgen3.addBtn(html, '計測リセット', () => this.reset()).addClass('btn');
-            rpgen3.addBtn(html, 'MIDIファイルから取得', () => this.input(midi.bgm)).addClass('btn');
+            rpgen3.addBtn(html, 'MIDIファイルから取得', () => this.input(midi.bpm)).addClass('btn');
         }
         reset(){
             this.old = 0;
