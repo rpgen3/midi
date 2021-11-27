@@ -21,7 +21,11 @@
             'css',
             'util'
         ].map(v => `https://rpgen3.github.io/mylib/export/${v}.mjs`),
+        [
+            'piano'
+        ].map(v => `https://rpgen3.github.io/midi/mjs/${v}.mjs`)
     ].flat());
+    const {piano} = rpgen3;
     const rpgen = await importAll([
         'https://rpgen3.github.io/midi/mjs/FullEvent.mjs',
         'https://rpgen3.github.io/midi/export/rpgen.mjs'
@@ -53,7 +57,7 @@
             let bpm = 0;
             for(const {event} of track) {
                 for(const v of event) {
-                    if(v.type !== 255 || v.metaType !== 81) continue;
+                    if(v.type !== 0xFF || v.metaType !== 0x51) continue;
                     bpm = 6E7 / v.data;
                     break;
                 }
@@ -93,6 +97,20 @@
             $('<h3>').appendTo(html).text('その他の設定');
             this.bpm = $('<dl>').appendTo(html);
             this.diff = $('<dl>').appendTo(html);
+            this.minTone = $('<dl>').appendTo(html);
+        }
+    };
+    const minTone = new class {
+        constructor(){
+            const html = config.minTone;
+            this.input = rpgen3.addSelect(html, {
+                label: '下限の音階',
+                save: true,
+                list: piano.note
+            });
+        }
+        get value(){
+            return piano.note2index(this.input()) + 21;
         }
     };
     const diff = new class {
@@ -205,6 +223,7 @@
                     const [note, velocity] = data,
                           isNoteOFF = type === 8 || !velocity;
                     if(isNoteOFF) break;
+                    if(minTone.value - 1 > note) break;
                     const id = getSoundId[note - 21];
                     if(id === void 0) break;
                     result.push(playSound(id, 100 * velocity / 0x7F | 0));
@@ -257,7 +276,7 @@
         rpgen3.addInputStr(hCode.empty(), {
             value: rpgen.set(
                 d + [...new Array(Math.min(n, evtList.length)).keys()]
-                .map(i => new rpgen.FullEvent(1).make(evtList[i], 3, 6 + i, 0))
+                .map(i => new rpgen.FullEvent(1).make(evtList[evtList.length - i - 1], 3, 6 + i, 0))
                 .join('\n\n')
             ),
             copy: true
@@ -265,7 +284,7 @@
     }
     const print = () => msg.print(`曲の数 ${evtList.length}`);
     const output = events => {
-        evtList.unshift(events);
+        evtList.push(events);
         outputCode(1);
         print();
     };
