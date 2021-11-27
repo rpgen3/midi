@@ -253,7 +253,6 @@
             getSoundId.map(v => playSound(v, 1)),
             wait(5000)
         ].flat().map(v => v + '\n#ED').join('\n'));
-        window.s = d;
         rpgen3.addInputStr(hCode.empty(), {
             value: rpgen.set(
                 d + [...new Array(Math.min(n, evtList.length)).keys()]
@@ -263,10 +262,22 @@
             copy: true
         });
     }
+    const print = () => msg.print(`曲の数 ${evtList.length}`);
     const output = events => {
         evtList.unshift(events);
         outputCode(1);
+        print();
     };
-    rpgen3.addBtn(foot, '全出力', () => outputCode(evtList.length));
-    rpgen3.addBtn(foot, '1個消す', () => evtList.shift());
+    rpgen3.addBtn(foot, '全出力', () => {
+        outputCode(evtList.length);
+        print();
+    });
+    rpgen3.addBtn(foot, 'shift', () => {
+        evtList.shift();
+        print();
+    });
+    rpgen3.addBtn(foot, 'pop', () => {
+        evtList.pop();
+        print();
+    });
 })();
