@@ -1,139 +1,174 @@
 (async () => {
-    const {importAll, getScript} = await import(`https://rpgen3.github.io/mylib/export/import.mjs`);
+    const {importAll, getScript, importAllSettled} = await import(`https://rpgen3.github.io/mylib/export/import.mjs`);
     await Promise.all([
         'https://code.jquery.com/jquery-3.3.1.min.js',
         'https://colxi.info/midi-parser-js/src/main.js'
     ].map(getScript));
     const {$, MidiParser} = window;
-    const rpgen3 = await importAll([
-        'input',
-        'util'
-    ].map(v => `https://rpgen3.github.io/mylib/export/${v}.mjs`));
-    const addBtn = (h, ttl, func) => $('<button>').appendTo(h).text(ttl).on('click', func);
     const html = $('body').empty().css({
         'text-align': 'center',
         padding: '1em',
         'user-select': 'none'
     });
-    const head = $('<dl>').appendTo(html),
-          body = $('<dl>').appendTo(html).hide(),
-          foot = $('<dl>').appendTo(html).hide();
-    const msg = (() => {
-        const elm = $('<div>').appendTo(body);
-        return (str, isError) => $('<span>').appendTo(elm.empty()).text(str).css({
-            color: isError ? 'red' : 'blue',
-            backgroundColor: isError ? 'pink' : 'lightblue'
-        });
-    })();
-    const sleep = ms => new Promise(resolve => setTimeout(resolve, ms)),
-          dialog = async str => (msg(str), sleep(30));
-    const piano = (()=>{
-        const semiTone = Math.exp(1/12 * Math.log(2)),
-              hz = [...new Array(87)].reduce((p, x) => ([p[0] * semiTone].concat(p)), [27.5]).reverse(),
-              ar = [],
-              ptn = 'AABCCDDEFFGG',
-              idxs = ptn.split('').map(v => ptn.indexOf(v));
-        for(const i of hz.keys()){
-            const j = i % ptn.length;
-            ar.push(ptn[j] + (idxs.includes(j) ? '' : '#') + ((i + 9) / ptn.length | 0));
+    const head = $('<header>').appendTo(html),
+          main = $('<main>').appendTo(html),
+          foot = $('<footer>').appendTo(html);
+    $('<h1>').appendTo(head).text('MIDIファイル読み込み');
+    $('<h2>').appendTo(head).text('てすと');
+    const rpgen3 = await importAll([
+        [
+            'input',
+            'css',
+            'util'
+        ].map(v => `https://rpgen3.github.io/mylib/export/${v}.mjs`),
+    ].flat());
+    const rpgen = await importAll([
+        'https://rpgen3.github.io/midi/mjs/FullEvent.mjs',
+        'https://rpgen3.github.io/midi/export/rpgen.mjs'
+    ]);
+    Promise.all([
+        [
+            'container',
+            'btn'
+        ].map(v => `https://rpgen3.github.io/spatialFilter/css/${v}.css`)
+    ].flat().map(rpgen3.addCSS));
+    const midi = new class {
+        constructor(){
+            const html = $('<div>').appendTo(main).addClass('container');
+            $('<h3>').appendTo(html).text('MIDIファイルを読み込む');
+            const input = $('<dl>').appendTo(html);
+            this.track = $('<div>').appendTo(html);
+            $('<dt>').appendTo(input).text('ファイル入力');
+            this.midi = null;
+            MidiParser.parse($('<input>').appendTo($('<dd>').appendTo(input)).prop({
+                type: 'file',
+                accept: '.mid'
+            }).get(0), result => {
+                this.midi = result;
+                tracks.init(result);
+            });
         }
-        return {hz, hzToNote: ar};
-    })();
-    $('<div>').appendTo(head).text('MIDIファイルを読み込む');
-    let g_midi = null;
-    MidiParser.parse($('<input>').appendTo(head).prop({
-        type: 'file',
-        accept: '.mid'
-    }).get(0), result => {
-        g_midi = result;
-        msg('MIDIファイルを読み込んだ');
-        body.show();
-        addSelectTracks();
-    });
-    $('<div>').appendTo(body).text('諸々の調整');
-    const inputMinTone = rpgen3.addInputNum(body,{
-        label: '下限の音階',
-        save: true,
-        value: 10,
-        max: piano.hz.length,
-        min: 0
-    });
-    const inputDiff = rpgen3.addInputNum(body,{
-        label: 'setTimeoutの誤差を引く[ms]',
-        save: true,
-        value: 30,
-        max: 500,
-        min: 0
-    });
-    addBtn(body, 'MIDIデータからBPMを取得する', () => {
-        const {track} = g_midi;
-        let bpm = 0;
-        for(const {event} of track) {
-            for(const v of event) {
-                if(v.type !== 255 || v.metaType !== 81) continue;
-                bpm = 60000000 / v.data;
-                break;
+        get bpm(){
+            const {track} = this.midi;
+            let bpm = 0;
+            for(const {event} of track) {
+                for(const v of event) {
+                    if(v.type !== 255 || v.metaType !== 81) continue;
+                    bpm = 6E7 / v.data;
+                    break;
+                }
+                if(bpm) break;
             }
-            if(bpm) break;
+            if(bpm) return bpm;
+            else throw 'BPM is none.';
         }
-        if(bpm) {
-            inputBPM(bpm);
-            msg('BPMを取得できた');
-        }
-        else msg('BPMを取得できなかった');
-    });
-    const inputBPM = (() => {
-        const bpmMin = 40,
-              bpmMax = 300;
-        const inputBPM = rpgen3.addInputNum(body,{
-            label: 'BPM',
-            save: true,
-            value: 140,
-            min: bpmMin,
-            max: bpmMax
-        });
-        let calcBPM = new class {
-            constructor(){
-                this.old = 0;
-                this.ar = [];
-            }
-            main(){
-                const now = performance.now(),
-                      bpm = 1 / (now - this.old) * 1000 * 60;
-                this.old = now;
-                if(bpm < bpmMin || bpm > bpmMax) return;
-                this.ar.push(bpm);
-                inputBPM(this.ar.reduce((p,x) => p + x) / this.ar.length);
-            }
-        };
-        addBtn(body, 'タップでBPM計測', () => calcBPM.main());
-        addBtn(body, '計測リセット', () => {
-            calcBPM = new calcBPM.constructor();
-        });
-        return inputBPM;
-    })();
-    const hChecks = $('<div>').appendTo(body);
-    const selectTracks = [];
-    const addSelectTracks = () => {
-        const {track} = g_midi;
-        hChecks.empty();
-        while(selectTracks.length) selectTracks.pop();
-        for(const [i, {event}] of track.entries()) selectTracks.push(rpgen3.addInputBool(hChecks,{
-            label: `チャンネル${i}　トラック数：${event.length}`,
-            value: true
-        }));
     };
-    addBtn(body, '処理開始', () => main());
-    const main = async () => {
-        const events = joinWait(trim(makeMusic()));
-        await dialog(`イベントの数：${events.length}`);
+    const tracks = new class {
+        constructor(){
+            const html = midi.track;
+            this.input = $('<dl>').appendTo(html).addClass('container');
+            this.checks = [];
+        }
+        init(midi){
+            const {input} = this;
+            input.empty();
+            this.checks = [];
+            for(const [i, {event}] of midi.track.entries()) {
+                this.checks.push(rpgen3.addInputBool(input, {
+                    label: `ch${i} track:${event.length}`,
+                    value: true
+                }));
+            }
+        }
+        get list(){
+            return this.checks.map(v => v());
+        }
+    };
+    const config = new class {
+        constructor(){
+            const html = $('<div>').appendTo(main).addClass('container');
+            $('<h3>').appendTo(html).text('その他の設定');
+            this.bpm = $('<dl>').appendTo(html);
+            this.diff = $('<dl>').appendTo(html);
+        }
+    };
+    const diff = new class {
+        constructor(){
+            const html = config.diff;
+            this.input = rpgen3.addInputNum(html,{
+                label: 'setTimeoutの誤差を引く[ms]',
+                save: true,
+                value: 30,
+                max: 500,
+                min: 0
+            });
+        }
+        get value(){
+            return this.input();
+        }
+    };
+    const bpm = new class {
+        constructor(){
+            const html = config.bpm;
+            this.min = 40;
+            this.max = 300;
+            this.old = 0;
+            this.ar = [];
+            this.input = rpgen3.addInputNum(html,{
+                label: 'BPM',
+                save: true,
+                value: 135,
+                min: this.min,
+                max: this.max
+            });
+            rpgen3.addBtn(html, 'タップでBPM計測', () => this.update()).addClass('btn');
+            rpgen3.addBtn(html, '計測リセット', () => this.reset()).addClass('btn');
+            rpgen3.addBtn(html, 'MIDIファイルから取得', () => this.input(midi.bgm)).addClass('btn');
+        }
+        reset(){
+            this.old = 0;
+            this.ar = [];
+        }
+        update(){
+            const {min, max} = this;
+            const now = performance.now(),
+                  bpm = 1 / (now - this.old) * 1000 * 60;
+            this.old = now;
+            if(bpm < min || bpm > max) return;
+            this.ar.push(bpm);
+            this.input(this.ar.reduce((p,x) => p + x) / this.ar.length);
+        }
+        get value(){
+            return this.input();
+        }
+    };
+    let started = false;
+    rpgen3.addBtn(main, '処理の開始', async () => {
+        if(started) return;
+        started = true;
+        const now = performance.now();
+        await makeMap();
+        msg.print(`処理が完了しました。(所要時間：${rpgen3.getTime(performance.now() - now)})`);
+        started = false;
+    }).addClass('btn');
+    const msg = new class {
+        constructor(){
+            this.html = $('<div>').appendTo(main);
+        }
+        async print(str){
+            this.html.text(str);
+            await rpgen3.sleep(0);
+        }
+    };
+    const makeMap = async () => {
+        const events = joinWait(trim(await makeMusic()));
         output(events);
     };
-    const makeMusic = () => {
-        const {track} = g_midi,
+    const makeMusic = async () => {
+        const {track} = midi.midi,
               currentIndexs = [...new Array(track.length).fill(0)],
               totalTimes = currentIndexs.slice(),
-              _indexs = selectTracks.flatMap((v, i) => v() ? [i] : []),
+              _indexs = tracks.list.flatMap((v, i) => v ? [i] : []),
               result = [];
         let currentTime = 0;
         const getMin = () => {
@@ -149,6 +184,7 @@
             }
             return idx;
         };
+        let _ = 0;
         while(_indexs.length){
             const index = getMin(),
                   {event} = track[index],
@@ -168,15 +204,14 @@
                     const [note, velocity] = data,
                           isNoteOFF = type === 8 || !velocity;
                     if(isNoteOFF) break;
-                    const tone = note - 21;
-                    if(inputMinTone - 1 > tone) continue;
-                    const id = getSoundId[tone];
+                    const id = getSoundId[note - 21];
                     if(id === void 0) continue;
                     result.push(playSound(id, 100 * velocity / 0x7F | 0));
                     break;
                 }
             }
             if(++currentIndexs[index] >= event.length) _indexs.splice(_indexs.indexOf(index), 1);
+            if(!(++_ % 1000)) await msg.print(`処理中(${currentIndexs[index]} ${ event.length})`);
         }
         return result;
     };
@@ -188,13 +223,13 @@
         return arr.slice(start, end);
     };
     const joinWait = arr => {
-        const {timeDivision} = g_midi,
-              deltaToMs = 1000 * 60 / inputBPM() / timeDivision,
+        const {timeDivision} = midi.midi,
+              deltaToMs = 1000 * 60 / bpm.value / timeDivision,
               result = [];
         for(const v of arr){
             if(isNaN(v)) result.push(v);
             else {
-                const ms = v * deltaToMs - inputDiff();
+                const ms = v * deltaToMs - diff.value;
                 if(ms >= 0) result.push(wait(ms | 0));
             }
         }
@@ -210,27 +245,28 @@
             range(822, 825)
         ].flat();
     })();
-    const rpgen = await importAll([
-        'rpgen',
-        'fullEvent'
-    ].map(v => `https://rpgen3.github.io/midi/export/${v}.mjs`));
-    const mapData = await(await fetch('data/piano5.txt')).text(),
+    const mapData = await(await fetch('data/musicPlayer.txt')).text(),
           hCode = $('<div>').appendTo(foot),
-          list5 = [];
-    const outputCode = n => rpgen3.addInputStr(hCode.empty(), {
-        value: rpgen.set(
-            mapData + [...new Array(Math.min(n, list5.length)).keys()]
-            .map(i => new rpgen.FullEvent(10).make(list5[i], 0, 11 + i))
-            .join('\n\n')
-        ),
-        copy: true
-    });
+          evtList = [];
+    const outputCode = n => {
+        const d = mapData.replace('$init$', [
+            getSoundId.map(v => playSound(v, 1)),
+            wait(5000)
+        ].flat().map(v => v + '\n#ED').join('\n'));
+        window.s = d;
+        rpgen3.addInputStr(hCode.empty(), {
+            value: rpgen.set(
+                d + [...new Array(Math.min(n, evtList.length)).keys()]
+                .map(i => new rpgen.FullEvent(1).make(evtList[i], 3, 6 + i))
+                .join('\n\n')
+            ),
+            copy: true
+        });
+    }
     const output = events => {
-        list5.unshift(events);
+        evtList.unshift(events);
         outputCode(1);
-        if(list5.length > 5) list5.pop();
-        foot.show();
     };
-    addBtn(foot, '5連出力', () => outputCode(5));
-    addBtn(foot, '1個消す', () => list5.shift());
+    rpgen3.addBtn(foot, '全出力', () => outputCode(evtList.length));
+    rpgen3.addBtn(foot, '1個消す', () => evtList.shift());
 })();
