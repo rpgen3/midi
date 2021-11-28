@@ -132,7 +132,7 @@
         constructor(){
             const html = config.bpm;
             this.min = 40;
-            this.max = 500;
+            this.max = 400;
             this.old = 0;
             this.ar = [];
             this.input = rpgen3.addInputNum(html,{
