@@ -102,7 +102,7 @@
         constructor(){
             const {html} = config;
             this.input = rpgen3.addInputNum(html, {
-                label: '一度に再生できる最大の個数',
+                label: '一度に再生できる最大の個数(0は制限無し)',
                 save: true,
                 min: 0,
                 max: 10,
