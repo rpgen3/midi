@@ -274,7 +274,7 @@
             wait(3000)
         ].flat().map(v => v + '\n#ED').join('\n'));
         rpgen3.addInputStr(hCode.empty(), {
-            value: rpgen.set(d + ar.map(i => new rpgen.FullEvent(1).make(evtList[i], 3, 6 + i, 0)).join('\n\n')),
+            value: rpgen.set(d + ar.map((v, i) => new rpgen.FullEvent(1).make(evtList[v], 3, 6 + i, 0)).join('\n\n')),
             copy: true
         });
     }
