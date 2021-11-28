@@ -268,28 +268,24 @@
     const mapData = await(await fetch('data/musicPlayer.txt')).text(),
           hCode = $('<div>').appendTo(foot),
           evtList = [];
-    const outputCode = n => {
+    const outputCode = ar => {
         const d = mapData.replace('$init$', [
             getSoundId.map(v => playSound(v, 1)),
             wait(3000)
         ].flat().map(v => v + '\n#ED').join('\n'));
         rpgen3.addInputStr(hCode.empty(), {
-            value: rpgen.set(
-                d + [...new Array(Math.min(n, evtList.length)).keys()]
-                .map(i => new rpgen.FullEvent(1).make(evtList[i], 3, 6 + i, 0))
-                .join('\n\n')
-            ),
+            value: rpgen.set(d + ar.map(i => new rpgen.FullEvent(1).make(evtList[i], 3, 6 + i, 0)).join('\n\n')),
             copy: true
         });
     }
     const print = () => msg.print(`曲の数 ${evtList.length}`);
     const output = events => {
         evtList.push(events);
-        outputCode(1);
+        outputCode([evtList.length - 1]);
         print();
     };
     rpgen3.addBtn(foot, '全出力', () => {
-        outputCode(evtList.length);
+        outputCode([...Array(evtList.length).keys()]);
         print();
     });
     rpgen3.addBtn(foot, 'shift', () => {
