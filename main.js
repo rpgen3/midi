@@ -95,14 +95,27 @@
         constructor(){
             const html = $('<div>').appendTo(main).addClass('container');
             $('<h3>').appendTo(html).text('その他の設定');
-            this.bpm = $('<dl>').appendTo(html);
-            this.diff = $('<dl>').appendTo(html);
-            this.minTone = $('<dl>').appendTo(html);
+            this.html = $('<dl>').appendTo(html);
+        }
+    };
+    const maxMultiPlay = new class {
+        constructor(){
+            const {html} = config;
+            this.input = rpgen3.addInputNum(html, {
+                label: '一度に再生できる最大の個数',
+                save: true,
+                min: 0,
+                max: 10,
+                value: 5
+            });
+        }
+        get value(){
+            return this.input();
         }
     };
     const minTone = new class {
         constructor(){
-            const html = config.minTone;
+            const {html} = config;
             this.input = rpgen3.addSelect(html, {
                 label: '下限の音階',
                 save: true,
@@ -115,7 +128,7 @@
     };
     const diff = new class {
         constructor(){
-            const html = config.diff;
+            const {html} = config;
             this.input = rpgen3.addInputNum(html,{
                 label: 'setTimeoutの誤差を引く[ms]',
                 save: true,
@@ -130,7 +143,7 @@
     };
     const bpm = new class {
         constructor(){
-            const html = config.bpm;
+            const {html} = config;
             this.min = 40;
             this.max = 400;
             this.old = 0;
@@ -245,14 +258,24 @@
     const joinWait = arr => {
         const {timeDivision} = midi.midi,
               deltaToMs = 1000 * 60 / bpm.value / timeDivision,
-              result = [];
+              result = [],
+              tmp = [],
+              max = maxMultiPlay.value;
+        const f = () => {
+            if(!tmp.length) return;
+            if(max) while(tmp.length > max) tmp.pop();
+            result.push(tmp.shift());
+        };
         for(const v of arr){
-            if(isNaN(v)) result.push(v);
+            if(isNaN(v)) tmp.push(v);
             else {
                 const ms = v * deltaToMs - diff.value;
-                if(ms >= 0) result.push(wait(ms | 0));
+                if(ms < 0) continue;
+                f();
+                result.push(wait(ms | 0));
             }
         }
+        f();
         return result;
     };
     const playSound = (i, v) => `#PL_SD\ni:${i},v:${v},`,
