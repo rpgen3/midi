@@ -276,7 +276,7 @@
         rpgen3.addInputStr(hCode.empty(), {
             value: rpgen.set(
                 d + [...new Array(Math.min(n, evtList.length)).keys()]
-                .map(i => new rpgen.FullEvent(1).make(evtList[evtList.length - i - 1], 3, 6 + i, 0))
+                .map(i => new rpgen.FullEvent(1).make(evtList[i], 3, 6 + i, 0))
                 .join('\n\n')
             ),
             copy: true
