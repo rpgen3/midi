@@ -296,21 +296,21 @@
             getSoundId.map(v => playSound(v, 1)),
             wait(3000)
         ].flat().map(v => v + '\n#ED').join('\n'));
+        const evts = ar.map((v, i) => new rpgen.FullEvent(1).make(evtList[v], 3, 6 + i, 0));
         rpgen3.addInputStr(hCode.empty(), {
-            value: rpgen.set(d + ar.map((v, i) => new rpgen.FullEvent(1).make(evtList[v], 3, 6 + i, 0)).join('\n\n')),
+            value: rpgen.set(d + evts.join('\n\n')),
             copy: true
         });
+        msg.print(`イベント数 ${evts.length}`);
     }
-    const print = () => msg.print(`曲の数 ${evtList.length}`);
     const output = events => {
         evtList.push(events);
         outputCode([evtList.length - 1]);
-        print();
     };
     rpgen3.addBtn(foot, '全出力', () => {
         outputCode([...Array(evtList.length).keys()]);
-        print();
     });
+    const print = () => msg.print(`曲の数 ${evtList.length}`);
     rpgen3.addBtn(foot, 'shift', () => {
         evtList.shift();
         print();
