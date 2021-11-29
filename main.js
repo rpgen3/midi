@@ -302,7 +302,7 @@
             copy: true
         });
     }
-    const printEventNum = arr => msg.print(`イベント数 ${Math.ceil(arr.reduce((p, x) => p + evtList[x].length, 0) / 400)}`);
+    const printEventNum = arr => msg.print(`イベント数 ${arr.reduce((p, x) => p + Math.ceil(evtList[x].length / 400), 0)}`);
     const output = events => {
         evtList.push(events);
         const a = [evtList.length - 1];
