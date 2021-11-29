@@ -87,7 +87,7 @@ https://i.imgur.com/CBrDcKn.png#END
 u:2552,i:1,l:7,x:20,y:0,w:360,h:200,r:0,a:100,sx:0,sy:0,sw:100,sh:100,ox:0,oy:0,wp:1,
 #ED
 #DW_IMG
-u:2552,i:2,l:7,x:20,y:53,w:360,h:210,r:0,a:100,sx:0,sy:0,sw:100,sh:100,ox:0,oy:0,wp:1,
+u:2552,i:2,l:7,x:20,y:53,w:360,h:220,r:0,a:100,sx:0,sy:0,sw:100,sh:100,ox:0,oy:0,wp:1,
 #ED
 #DW_IMG
 u:96xYIGe.png,i:3,l:7,x:50,y:49,w:380,h:60,r:0,a:100,sx:0,sy:3,sw:100,sh:100,ox:0,oy:0,c:1,wp:1,
