@@ -301,7 +301,7 @@
             value: rpgen.set(d + evts.join('\n\n')),
             copy: true
         });
-        msg.print(`イベント数 ${evts.length}`);
+        msg.print(`イベント数 ${evts.reduce((p, x) => p + x.length)}`);
     }
     const output = events => {
         evtList.push(events);
