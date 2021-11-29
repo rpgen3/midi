@@ -291,32 +291,37 @@
     const mapData = await(await fetch('data/musicPlayer.txt')).text(),
           hCode = $('<div>').appendTo(foot),
           evtList = [];
-    const outputCode = ar => {
+    const outputCode = arr => {
         const d = mapData.replace('$init$', [
             getSoundId.map(v => playSound(v, 1)),
             wait(3000)
         ].flat().map(v => v + '\n#ED').join('\n'));
-        const evts = ar.map((v, i) => new rpgen.FullEvent(1).make(evtList[v], 3, 6 + i, 0));
+        const evts = arr.map((v, i) => new rpgen.FullEvent(1).make(evtList[v], 3, 6 + i, 0));
         rpgen3.addInputStr(hCode.empty(), {
             value: rpgen.set(d + evts.join('\n\n')),
             copy: true
         });
-        msg.print(`イベント数 ${evts.reduce((p, x) => p + x.length, 0)}`);
     }
+    const printEventNum = arr => msg.print(`イベント数 ${Math.ceil(arr.reduce((p, x) => p + evtList[x].length, 0) / 400)}`);
     const output = events => {
         evtList.push(events);
-        outputCode([evtList.length - 1]);
+        const a = [evtList.length - 1];
+        outputCode(a);
+        printEventNum(a);
     };
     rpgen3.addBtn(foot, '全出力', () => {
-        outputCode([...Array(evtList.length).keys()]);
+        const a = [...evtList.keys()];
+        outputCode(a);
+        printEventNum(a);
     });
-    const print = () => msg.print(`曲の数 ${evtList.length}`);
     rpgen3.addBtn(foot, 'shift', () => {
         evtList.shift();
-        print();
+        const a = [...evtList.keys()];
+        printEventNum(a);
     });
     rpgen3.addBtn(foot, 'pop', () => {
         evtList.pop();
-        print();
+        const a = [...evtList.keys()];
+        printEventNum(a);
     });
 })();
