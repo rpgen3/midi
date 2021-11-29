@@ -264,7 +264,7 @@
         const f = () => {
             if(!tmp.length) return;
             if(max) while(tmp.length > max) tmp.pop();
-            result.push(tmp.shift());
+            while(tmp.length) result.push(tmp.shift());
         };
         for(const v of arr){
             if(isNaN(v)) tmp.push(v);
