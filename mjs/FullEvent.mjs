@@ -5,11 +5,12 @@ class Ph {
         this.foot = `#PHEND${i}`;
         const next = (i + 1) % 4;
         if(last - events.length > 0) events.push(`#CH_PH\np:${next},x:${(next ? x : x + 1) + xx},y:${yy},`);
+        this.ed = ed;
     }
     toStr(){
         return [
             this.head,
-            this.body.map(v => v + (ed ? '\n#ED' : '')),
+            this.body.map(v => v + (this.ed ? '\n#ED' : '')),
             this.foot
         ].flat().join('\n');
     }
