@@ -27,9 +27,9 @@
     ].flat());
     const {piano} = rpgen3;
     const rpgen = await importAll([
-        'https://rpgen3.github.io/midi/mjs/FullEvent.mjs',
-        'https://rpgen3.github.io/midi/export/rpgen.mjs'
-    ]);
+        'FullEvent',
+        'rpgen'
+    ].map(v => `https://rpgen3.github.io/midi/mjs/${v}.mjs`));
     Promise.all([
         [
             'container',
@@ -296,7 +296,11 @@
             getSoundId.map(v => playSound(v, 1)),
             wait(3000)
         ].flat().map(v => v + '\n#ED').join('\n'));
-        const evts = arr.map((v, i) => new rpgen.FullEvent(1).make(evtList[v], 3, 6 + i, 0));
+        const evts = arr.map((v, i) => new rpgen.FullEvent(1).make(evtList[v], {
+            x: 3,
+            y: 6 + i,
+            tm: 0
+        }));
         rpgen3.addInputStr(hCode.empty(), {
             value: rpgen.set(d + evts.join('\n\n')),
             copy: true
