@@ -2,7 +2,7 @@ export const piano = new class {
     constructor(){
         const semiTone = Math.exp(1/12 * Math.log(2)),
               hz = [...Array(87).keys()].reduce((p, x) => ([p[0] * semiTone].concat(p)), [27.5]).reverse();
-        const octave = [
+        const key = [
             'A',
             'A#',
             'B',
@@ -17,8 +17,8 @@ export const piano = new class {
             'G#'
         ];
         const note = [];
-        for(const i of hz.keys()) note.push(octave[i % octave.length] + ((i + 9) / octave.length | 0) );
-        Object.assign(this, {octave, hz, note});
+        for(const i of hz.keys()) note.push(octave[i % key.length] + ((i + 9) / key.length | 0) );
+        Object.assign(this, {key, hz, note});
         {
             const m = new Map;
             for(const [i, v] of note.entries()) m.set(v, i);
