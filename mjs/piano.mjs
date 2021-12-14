@@ -1,24 +1,32 @@
 export const piano = new class {
     constructor(){
         const semiTone = Math.exp(1/12 * Math.log(2)),
-              hz = [...Array(87).keys()].reduce((p, x) => ([p[0] * semiTone].concat(p)), [27.5]).reverse(),
-              ar = [],
-              ptn = 'AABCCDDEFFGG',
-              idxs = ptn.split('').map(v => ptn.indexOf(v));
-        for(const i of hz.keys()){
-            const j = i % ptn.length;
-            ar.push(ptn[j] + (idxs.includes(j) ? '' : '#') + ((i + 9) / ptn.length | 0));
-        }
-        this.hz = hz;
-        this.note = ar;
+              hz = [...Array(87).keys()].reduce((p, x) => ([p[0] * semiTone].concat(p)), [27.5]).reverse();
+        const octave = [
+            'A',
+            'A#',
+            'B',
+            'C',
+            'C#',
+            'D',
+            'D#',
+            'E',
+            'F',
+            'F#',
+            'G',
+            'G#'
+        ];
+        const note = [];
+        for(const i of hz.keys()) note.push(octave[i % octave.length] + ((i + 9) / octave.length | 0) );
+        Object.assign(this, {octave, hz, note});
         {
             const m = new Map;
-            for(const [i, v] of ar.entries()) m.set(v, i);
+            for(const [i, v] of note.entries()) m.set(v, i);
             this._note2index = m;
         }
         {
             const m = new Map;
-            for(const [i, v] of ar.entries()) m.set(v, hz[i]);
+            for(const [i, v] of note.entries()) m.set(v, hz[i]);
             this._note2hz = m;
         }
     }
