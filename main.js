@@ -220,7 +220,7 @@
         while(_indexs.length){
             const index = getMin(),
                   {event} = track[index],
-                  {deltaTime, type, data} = event[currentIndexs[index]];
+                  {deltaTime, type, data, channel} = event[currentIndexs[index]];
             totalTimes[index] += deltaTime;
             if(deltaTime) {
                 const total = totalTimes[index],
@@ -235,7 +235,7 @@
                 case 9: {
                     const [note, velocity] = data,
                           isNoteOFF = type === 8 || !velocity;
-                    if(isNoteOFF) break;
+                    if(isNoteOFF || channel === 9) break;
                     if(minTone.value - 1 > note) break;
                     const id = getSoundId[note - 21];
                     if(id === void 0) break;
