@@ -152,6 +152,7 @@
                 label: 'BPM',
                 save: true,
                 value: 135,
+                step: 5,
                 min: this.min,
                 max: this.max
             });
